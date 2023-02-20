@@ -10,7 +10,7 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./interfaces/IStakingRewards.sol";
 import "./RewardsDistributionRecipient.sol";
 
-contract StakingRewards is IStakingRewards, RewardsDistributionRecipient, ReentrancyGuard {
+contract StakingPool is IStakingRewards, RewardsDistributionRecipient, ReentrancyGuard {
   using SafeMath for uint256;
   using SafeERC20 for IERC20;
 
