@@ -1,6 +1,7 @@
 import { expect } from 'chai'
 import { ethers, upgrades } from 'hardhat';
 import { StakingPoolFactory__factory } from '../typechain/factories/contracts/StakingPoolFactory__factory';
+import { WETH9__factory } from '../typechain/factories/contracts/test/WETH9__factory';
 import { TestERC20__factory } from '../typechain/factories/contracts/test/TestERC20__factory';
 import { FlyCoin__factory } from '../typechain/factories/contracts/FlyCoin__factory';
 
@@ -14,8 +15,12 @@ export async function deployStakingPoolContractsFixture() {
   const flyCoinProxy = await upgrades.deployProxy(FlyCoin, []);
   const flyCoin = FlyCoin__factory.connect(flyCoinProxy.address, provider);
 
+  const WETH9 = await ethers.getContractFactory('WETH9');
+  const WETH9Contract = await WETH9.deploy();
+  const weth = WETH9__factory.connect(WETH9Contract.address, provider);
+
   const StakingPoolFactory = await ethers.getContractFactory('StakingPoolFactory');
-  const stakingPoolFactoryContract = await StakingPoolFactory.deploy(flyCoinProxy.address);
+  const stakingPoolFactoryContract = await StakingPoolFactory.deploy(flyCoinProxy.address, weth.address);
   const stakingPoolFactory = StakingPoolFactory__factory.connect(stakingPoolFactoryContract.address, provider);
 
   const TestERC20 = await ethers.getContractFactory('TestERC20');
@@ -24,7 +29,7 @@ export async function deployStakingPoolContractsFixture() {
 
   const  [Alice, Bob, Caro, Dave]  = await ethers.getSigners();
 
-  return { flyCoin, stakingPoolFactory, erc20, Alice, Bob, Caro, Dave };
+  return { flyCoin, stakingPoolFactory, weth, erc20, Alice, Bob, Caro, Dave };
 }
 
 export function expandTo18Decimals(n: number) {

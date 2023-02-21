@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.9;
 
-interface IStakingRewards {
+interface IStakingPool {
   // Views
   function lastTimeRewardApplicable() external view returns (uint256);
 

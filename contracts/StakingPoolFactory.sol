@@ -4,13 +4,16 @@ pragma solidity ^0.8.9;
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import "@openzeppelin/contracts/access/Ownable.sol";
 
+import "./lib/CurrencyTransferLib.sol";
 import './StakingPool.sol';
+import './EthStakingPool.sol';
 
 contract StakingPoolFactory is Ownable {
   using SafeMath for uint256;
 
   // immutables
   address public rewardsToken;
+  address public nativeTokenWrapper;
 
   // info about rewards for a particular staking token
   struct StakingPoolInfo {
@@ -31,9 +34,11 @@ contract StakingPoolFactory is Ownable {
   );
 
   constructor(
-    address _rewardsToken
+    address _rewardsToken,
+    address _nativeTokenWrapper
   ) Ownable() {
     rewardsToken = _rewardsToken;
+    nativeTokenWrapper = _nativeTokenWrapper;
   }
 
   function getStakingPoolAddress(address stakingToken) public virtual view returns (address) {
@@ -52,7 +57,11 @@ contract StakingPoolFactory is Ownable {
     require(startTime >= block.timestamp, 'StakingPoolFactory::deployPool: start too soon');
     require(roundDurationInDays > 0, 'StakingPoolFactory::deployPool: duration too short');
 
-    info.poolAddress = address(new StakingPool(/*_rewardsDistribution=*/ address(this), rewardsToken, stakingToken, roundDurationInDays));
+    if (stakingToken == CurrencyTransferLib.NATIVE_TOKEN) {
+      info.poolAddress = address(new EthStakingPool(/*_rewardsDistribution=*/ address(this), rewardsToken, nativeTokenWrapper, roundDurationInDays));
+    } else {
+      info.poolAddress = address(new StakingPool(/*_rewardsDistribution=*/ address(this), rewardsToken, stakingToken, roundDurationInDays));
+    }
     info.startTime = startTime;
     info.roundDurationInDays = roundDurationInDays;
     info.totalRewardsAmount = 0;
@@ -62,7 +71,6 @@ contract StakingPoolFactory is Ownable {
 
   ///// permissionless functions
 
-  /// @notice Deposit rewards. User need `approve` this contract to transfer rewards token before calling this method.
   function addRewards(address stakingToken, uint256 rewardsAmount) public {
     StakingPoolInfo storage info = stakingPoolInfoByStakingToken[stakingToken];
     require(info.poolAddress != address(0), 'StakingPoolFactory::addRewards: not deployed');

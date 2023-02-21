@@ -9,11 +9,11 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-// Inheritance
-import "./interfaces/IStakingRewards.sol";
+import "./lib/CurrencyTransferLib.sol";
+import "./interfaces/IStakingPool.sol";
 import "./RewardsDistributionRecipient.sol";
 
-contract StakingPool is IStakingRewards, RewardsDistributionRecipient, ReentrancyGuard {
+contract StakingPool is IStakingPool, RewardsDistributionRecipient, ReentrancyGuard {
   using SafeMath for uint256;
   using SafeERC20 for IERC20;
 
@@ -81,22 +81,29 @@ contract StakingPool is IStakingRewards, RewardsDistributionRecipient, Reentranc
 
   /* ========== MUTATIVE FUNCTIONS ========== */
 
-  /// @notice Stake xxETH tokens to earn rewards. User need `approve` this contract to transfer xxETH before calling this method.
-  function stake(uint256 amount) external nonReentrant updateReward(msg.sender) {
+  function stake(uint256 amount) external virtual nonReentrant updateReward(msg.sender) {
     require(amount > 0, "Cannot stake 0");
     _totalSupply = _totalSupply.add(amount);
     _balances[msg.sender] = _balances[msg.sender].add(amount);
     // console.log('stake, msg.sender balance: %s', stakingToken.balanceOf(msg.sender));
-    stakingToken.safeTransferFrom(msg.sender, address(this), amount);
+    _transferStakingToken(amount);
     emit Staked(msg.sender, amount);
   }
 
-  function withdraw(uint256 amount) public nonReentrant updateReward(msg.sender) {
+  function _transferStakingToken(uint256 amount) internal virtual {
+    stakingToken.safeTransferFrom(msg.sender, address(this), amount);
+  }
+
+  function withdraw(uint256 amount) public virtual nonReentrant updateReward(msg.sender) {
     require(amount > 0, "Cannot withdraw 0");
     _totalSupply = _totalSupply.sub(amount);
     _balances[msg.sender] = _balances[msg.sender].sub(amount);
-    stakingToken.safeTransfer(msg.sender, amount);
+    _withdrawStakingToken(amount);
     emit Withdrawn(msg.sender, amount);
+  }
+
+  function _withdrawStakingToken(uint256 amount) internal virtual {
+    stakingToken.safeTransfer(msg.sender, amount);
   }
 
   function getReward() public nonReentrant updateReward(msg.sender) {
