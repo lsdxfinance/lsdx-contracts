@@ -47,6 +47,8 @@ contract StakingPool is IStakingPool, RewardsDistributionRecipient, ReentrancyGu
     rewardsDuration = _durationInDays.mul(3600 * 24);
   }
 
+  receive() external payable virtual {}
+
   /* ========== VIEWS ========== */
 
   function totalSupply() external view returns (uint256) {
@@ -81,7 +83,7 @@ contract StakingPool is IStakingPool, RewardsDistributionRecipient, ReentrancyGu
 
   /* ========== MUTATIVE FUNCTIONS ========== */
 
-  function stake(uint256 amount) external virtual nonReentrant updateReward(msg.sender) {
+  function stake(uint256 amount) external virtual payable nonReentrant updateReward(msg.sender) {
     require(amount > 0, "Cannot stake 0");
     _totalSupply = _totalSupply.add(amount);
     _balances[msg.sender] = _balances[msg.sender].add(amount);

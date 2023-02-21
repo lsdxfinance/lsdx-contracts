@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.9;
 
+// Uncomment this line to use console.log
+// import "hardhat/console.sol";
+
 import "./lib/CurrencyTransferLib.sol";
 import "./interfaces/IWETH.sol";
 import "./StakingPool.sol";
@@ -21,7 +24,7 @@ contract EthStakingPool is StakingPool {
   }
 
   function _transferStakingToken(uint256 amount) override internal virtual {
-    CurrencyTransferLib.transferCurrency(CurrencyTransferLib.NATIVE_TOKEN, msg.sender, address(this), amount);
+    // console.log('_transferStakingToken, contract balance: %s, msg.sender balance: %s', address(this).balance, address(msg.sender).balance);
     weth.deposit{value: amount}();
   }
 

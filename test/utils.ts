@@ -9,6 +9,8 @@ const { provider, BigNumber } = ethers;
 
 export const ONE_DAY_IN_SECS = 24 * 60 * 60;
 
+export const nativeTokenAddress = '0x0000000000000000000000000000000000000000';
+
 export async function deployStakingPoolContractsFixture() {
 
   const FlyCoin = await ethers.getContractFactory('FlyCoin');

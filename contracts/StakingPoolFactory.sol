@@ -83,7 +83,7 @@ contract StakingPoolFactory is Ownable {
         IERC20(rewardsToken).transferFrom(msg.sender, info.poolAddress, rewardsAmount),
         'StakingPoolFactory::addRewards: transfer failed'
       );
-      StakingPool(info.poolAddress).notifyRewardAmount(rewardsAmount);
+      StakingPool(payable(address(info.poolAddress))).notifyRewardAmount(rewardsAmount);
     }
   }
 }
