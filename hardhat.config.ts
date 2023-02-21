@@ -54,18 +54,25 @@ const config: HardhatUserConfig = {
     tests: "./test",
   },
   solidity: {
-    version: "0.8.12",
-    settings: {
-      metadata: {
-        bytecodeHash: "ipfs",
+    compilers: [
+      {
+        version: "0.8.12",
+        settings: {
+          metadata: {
+            bytecodeHash: "ipfs",
+          },
+          // You should disable the optimizer when debugging
+          // https://hardhat.org/hardhat-network/#solidity-optimizer-support
+          optimizer: {
+            enabled: true,
+            runs: 590,
+          },
+        },
       },
-      // You should disable the optimizer when debugging
-      // https://hardhat.org/hardhat-network/#solidity-optimizer-support
-      optimizer: {
-        enabled: true,
-        runs: 590,
-      },
-    },
+      {
+        version: "0.4.18"
+      }
+    ]
   },
   abiExporter: {
     flat: true,

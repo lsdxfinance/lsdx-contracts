@@ -19,16 +19,12 @@ export async function deployStakingPoolContractsFixture() {
   const stakingPoolFactory = StakingPoolFactory__factory.connect(stakingPoolFactoryContract.address, provider);
 
   const TestERC20 = await ethers.getContractFactory('TestERC20');
-  const wethProxy = await upgrades.deployProxy(TestERC20, ['Wrapped Ether', 'WETH']);
-  const wETH = TestERC20__factory.connect(wethProxy.address, provider);
-  const stETHProxy = await upgrades.deployProxy(TestERC20, ['Liquid staked Ether 2.0', 'stETH']);
-  const stETH = TestERC20__factory.connect(stETHProxy.address, provider);
-  const frxETHProxy = await upgrades.deployProxy(TestERC20, ['Frax Ether', 'frxETH']);
-  const frxETH = TestERC20__factory.connect(frxETHProxy.address, provider);
+  const erc20Proxy = await upgrades.deployProxy(TestERC20, ['Test ERC20', 'ERC20']);
+  const erc20 = TestERC20__factory.connect(erc20Proxy.address, provider);
 
   const  [Alice, Bob, Caro, Dave]  = await ethers.getSigners();
 
-  return { flyCoin, stakingPoolFactory, wETH, stETH, frxETH, Alice, Bob, Caro, Dave };
+  return { flyCoin, stakingPoolFactory, erc20, Alice, Bob, Caro, Dave };
 }
 
 export function expandTo18Decimals(n: number) {
