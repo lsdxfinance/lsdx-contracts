@@ -1,16 +1,15 @@
+import { expect } from 'chai'
 import { ethers, upgrades } from 'hardhat';
-import { time } from "@nomicfoundation/hardhat-network-helpers";
 import { StakingPoolFactory__factory } from '../typechain/factories/contracts/StakingPoolFactory__factory';
 import { TestERC20__factory } from '../typechain/factories/contracts/test/TestERC20__factory';
 import { FlyCoin__factory } from '../typechain/factories/contracts/FlyCoin__factory';
+import { BigNumber } from 'ethers';
 
-const { provider } = ethers;
-
-export const nativeTokenAddress = '0x0000000000000000000000000000000000000000';
+const { provider, BigNumber } = ethers;
 
 export const ONE_DAY_IN_SECS = 24 * 60 * 60;
 
-export async function deployContractsFixture() {
+export async function deployStakingPoolContractsFixture() {
 
   const FlyCoin = await ethers.getContractFactory('FlyCoin');
   const flyCoinProxy = await upgrades.deployProxy(FlyCoin, []);
@@ -32,3 +31,16 @@ export async function deployContractsFixture() {
 
   return { flyCoin, stakingPoolFactory, wETH, stETH, frxETH, Alice, Bob, Caro, Dave };
 }
+
+export function expandTo18Decimals(n: number) {
+  return BigNumber.from(n).mul(BigNumber.from(10).pow(18));
+}
+
+// ensure result is within .01%
+export function expectBigNumberEquals(expected: BigNumber, actual: BigNumber) {
+  expect(expected.sub(actual).abs().lte(expected.div(10000))).to.be.true;
+}
+
+// export async function mineBlock(provider: ethers.providers.Web3Provider, timestamp: number): Promise<void> {
+//   return provider.send('evm_mine', [timestamp])
+// }

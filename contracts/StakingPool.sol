@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.9;
 
+// Uncomment this line to use console.log
+// import "hardhat/console.sol";
+
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -20,7 +23,7 @@ contract StakingPool is IStakingRewards, RewardsDistributionRecipient, Reentranc
   IERC20 public stakingToken;
   uint256 public periodFinish = 0;
   uint256 public rewardRate = 0;
-  uint256 public rewardsDuration = 7 days;
+  uint256 public rewardsDuration;
   uint256 public lastUpdateTime;
   uint256 public rewardPerTokenStored;
 
@@ -35,11 +38,13 @@ contract StakingPool is IStakingRewards, RewardsDistributionRecipient, Reentranc
   constructor(
     address _rewardsDistribution,
     address _rewardsToken,
-    address _stakingToken
+    address _stakingToken,
+    uint256 _durationInDays
   ) {
     rewardsToken = IERC20(_rewardsToken);
     stakingToken = IERC20(_stakingToken);
     rewardsDistribution = _rewardsDistribution;
+    rewardsDuration = _durationInDays.mul(3600 * 24);
   }
 
   /* ========== VIEWS ========== */
@@ -76,22 +81,12 @@ contract StakingPool is IStakingRewards, RewardsDistributionRecipient, Reentranc
 
   /* ========== MUTATIVE FUNCTIONS ========== */
 
-  function stakeWithPermit(uint256 amount, uint deadline, uint8 v, bytes32 r, bytes32 s) external nonReentrant updateReward(msg.sender) {
-    require(amount > 0, "Cannot stake 0");
-    _totalSupply = _totalSupply.add(amount);
-    _balances[msg.sender] = _balances[msg.sender].add(amount);
-
-    // permit
-    IUniswapV2ERC20(address(stakingToken)).permit(msg.sender, address(this), amount, deadline, v, r, s);
-
-    stakingToken.safeTransferFrom(msg.sender, address(this), amount);
-    emit Staked(msg.sender, amount);
-  }
-
+  /// @notice Stake xxETH tokens to earn rewards. User need `approve` this contract to transfer xxETH before calling this method.
   function stake(uint256 amount) external nonReentrant updateReward(msg.sender) {
     require(amount > 0, "Cannot stake 0");
     _totalSupply = _totalSupply.add(amount);
     _balances[msg.sender] = _balances[msg.sender].add(amount);
+    // console.log('stake, msg.sender balance: %s', stakingToken.balanceOf(msg.sender));
     stakingToken.safeTransferFrom(msg.sender, address(this), amount);
     emit Staked(msg.sender, amount);
   }
@@ -159,8 +154,4 @@ contract StakingPool is IStakingRewards, RewardsDistributionRecipient, Reentranc
   event Staked(address indexed user, uint256 amount);
   event Withdrawn(address indexed user, uint256 amount);
   event RewardPaid(address indexed user, uint256 reward);
-}
-
-interface IUniswapV2ERC20 {
-  function permit(address owner, address spender, uint value, uint deadline, uint8 v, bytes32 r, bytes32 s) external;
 }

@@ -7,73 +7,75 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import './StakingPool.sol';
 
 contract StakingPoolFactory is Ownable {
-  using SafeMath for uint;
+  using SafeMath for uint256;
 
   // immutables
   address public rewardsToken;
-  // uint public stakingRewardsGenesis;
-
-  // the staking tokens for which the rewards contract has been deployed
-  // address[] public stakingTokens;
 
   // info about rewards for a particular staking token
   struct StakingPoolInfo {
-    address stakingPoolAddress;
-    uint totalRewardsAmount;
+    address poolAddress;
+    uint256 startTime;
+    uint256 durationInDays;
+    uint256 totalRewardsAmount;
   }
 
   // rewards info by staking token
   mapping(address => StakingPoolInfo) public stakingPoolInfoByStakingToken;
 
+  event StakingPoolDeployed(
+    address indexed poolAddress,
+    address indexed stakingToken,
+    uint256 startTime,
+    uint256 durationInDays
+  );
+
   constructor(
     address _rewardsToken
-    // uint _stakingRewardsGenesis
   ) Ownable() {
-    // require(_stakingRewardsGenesis >= block.timestamp, 'StakingRewardsFactory::constructor: genesis too soon');
-
     rewardsToken = _rewardsToken;
-    // stakingRewardsGenesis = _stakingRewardsGenesis;
+  }
+
+  function getStakingPoolAddress(address stakingToken) public virtual view returns (address) {
+    StakingPoolInfo storage info = stakingPoolInfoByStakingToken[stakingToken];
+    require(info.poolAddress != address(0), 'StakingPoolFactory::getPoolAddress: not deployed');
+    return info.poolAddress;
   }
 
   ///// permissioned functions
 
-  // deploy a staking reward contract for the staking token, and store the reward amount
-  // the reward will be distributed to the staking reward contract no sooner than the genesis
-  function deploy(address stakingToken) public onlyOwner {
+  // deploy a by-stages staking reward contract for the staking token
+  function deployPool(address stakingToken, uint256 startTime, uint256 durationInDays) public onlyOwner {
     StakingPoolInfo storage info = stakingPoolInfoByStakingToken[stakingToken];
-    require(info.stakingPoolAddress == address(0), 'StakingPoolFactory::deploy: already deployed');
 
-    info.stakingPoolAddress = address(new StakingPool(/*_rewardsDistribution=*/ address(this), rewardsToken, stakingToken));
+    require(info.poolAddress == address(0), 'StakingPoolFactory::deployPool: already deployed');
+    require(startTime >= block.timestamp, 'StakingPoolFactory::deployPool: start too soon');
+    require(durationInDays > 0, 'StakingPoolFactory::deployPool: duration too short');
+
+    info.poolAddress = address(new StakingPool(/*_rewardsDistribution=*/ address(this), rewardsToken, stakingToken, durationInDays));
+    info.startTime = startTime;
+    info.durationInDays = durationInDays;
     info.totalRewardsAmount = 0;
-    // stakingTokens.push(stakingToken);
+
+    emit StakingPoolDeployed(info.poolAddress, stakingToken, startTime, durationInDays);
   }
 
   ///// permissionless functions
 
-  // call notifyRewardAmount for all staking tokens.
-  // function notifyRewardAmounts(uint rewardAmount) public {
-  //   require(stakingTokens.length > 0, 'StakingRewardsFactory::notifyRewardAmounts: called before any deploys');
-  //   for (uint i = 0; i < stakingTokens.length; i++) {
-  //     notifyRewardAmount(stakingTokens[i], rewardAmount);
-  //   }
-  // }
-
-  // notify reward amount for an individual staking token.
-  // this is a fallback in case the notifyRewardAmounts costs too much gas to call for all contracts
-  function notifyRewardAmount(address stakingToken, uint rewardAmount) public {
-    // require(block.timestamp >= stakingRewardsGenesis, 'StakingRewardsFactory::notifyRewardAmount: not ready');
-
+  /// @notice Deposit rewards. User need `approve` this contract to transfer rewards token before calling this method.
+  function depositRewards(address stakingToken, uint256 rewardsAmount) public {
     StakingPoolInfo storage info = stakingPoolInfoByStakingToken[stakingToken];
-    require(info.stakingPoolAddress != address(0), 'StakingPoolFactory::notifyRewardAmount: not deployed');
+    require(info.poolAddress != address(0), 'StakingPoolFactory::depositRewards: not deployed');
+    require(block.timestamp >= info.startTime, 'StakingPoolFactory::depositRewards: not ready');
 
-    if (rewardAmount > 0) {
-      info.totalRewardsAmount = info.totalRewardsAmount.add(rewardAmount);
+    if (rewardsAmount > 0) {
+      info.totalRewardsAmount = info.totalRewardsAmount.add(rewardsAmount);
 
       require(
-        IERC20(rewardsToken).transfer(info.stakingPoolAddress, rewardAmount),
-        'StakingPoolFactory::notifyRewardAmount: transfer failed'
+        IERC20(rewardsToken).transferFrom(msg.sender, info.poolAddress, rewardsAmount),
+        'StakingPoolFactory::depositRewards: transfer failed'
       );
-      StakingPool(info.stakingPoolAddress).notifyRewardAmount(rewardAmount);
+      StakingPool(info.poolAddress).notifyRewardAmount(rewardsAmount);
     }
   }
 }
