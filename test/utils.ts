@@ -3,7 +3,6 @@ import { ethers, upgrades } from 'hardhat';
 import { StakingPoolFactory__factory } from '../typechain/factories/contracts/StakingPoolFactory__factory';
 import { TestERC20__factory } from '../typechain/factories/contracts/test/TestERC20__factory';
 import { FlyCoin__factory } from '../typechain/factories/contracts/FlyCoin__factory';
-import { BigNumber } from 'ethers';
 
 const { provider, BigNumber } = ethers;
 
@@ -38,9 +37,9 @@ export function expandTo18Decimals(n: number) {
 
 // ensure result is within .01%
 export function expectBigNumberEquals(expected: BigNumber, actual: BigNumber) {
-  expect(expected.sub(actual).abs().lte(expected.div(10000))).to.be.true;
+  const equals = expected.sub(actual).abs().lte(expected.div(10000));
+  if (!equals) {
+    console.log(`BigNumber does not equal. expected: ${expected.toString()}, actual: ${actual.toString()}`);
+  }
+  expect(equals).to.be.true;
 }
-
-// export async function mineBlock(provider: ethers.providers.Web3Provider, timestamp: number): Promise<void> {
-//   return provider.send('evm_mine', [timestamp])
-// }

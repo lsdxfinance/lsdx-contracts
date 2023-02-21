@@ -16,7 +16,7 @@ contract StakingPoolFactory is Ownable {
   struct StakingPoolInfo {
     address poolAddress;
     uint256 startTime;
-    uint256 durationInDays;
+    uint256 roundDurationInDays;
     uint256 totalRewardsAmount;
   }
 
@@ -27,7 +27,7 @@ contract StakingPoolFactory is Ownable {
     address indexed poolAddress,
     address indexed stakingToken,
     uint256 startTime,
-    uint256 durationInDays
+    uint256 roundDurationInDays
   );
 
   constructor(
@@ -45,35 +45,35 @@ contract StakingPoolFactory is Ownable {
   ///// permissioned functions
 
   // deploy a by-stages staking reward contract for the staking token
-  function deployPool(address stakingToken, uint256 startTime, uint256 durationInDays) public onlyOwner {
+  function deployPool(address stakingToken, uint256 startTime, uint256 roundDurationInDays) public onlyOwner {
     StakingPoolInfo storage info = stakingPoolInfoByStakingToken[stakingToken];
 
     require(info.poolAddress == address(0), 'StakingPoolFactory::deployPool: already deployed');
     require(startTime >= block.timestamp, 'StakingPoolFactory::deployPool: start too soon');
-    require(durationInDays > 0, 'StakingPoolFactory::deployPool: duration too short');
+    require(roundDurationInDays > 0, 'StakingPoolFactory::deployPool: duration too short');
 
-    info.poolAddress = address(new StakingPool(/*_rewardsDistribution=*/ address(this), rewardsToken, stakingToken, durationInDays));
+    info.poolAddress = address(new StakingPool(/*_rewardsDistribution=*/ address(this), rewardsToken, stakingToken, roundDurationInDays));
     info.startTime = startTime;
-    info.durationInDays = durationInDays;
+    info.roundDurationInDays = roundDurationInDays;
     info.totalRewardsAmount = 0;
 
-    emit StakingPoolDeployed(info.poolAddress, stakingToken, startTime, durationInDays);
+    emit StakingPoolDeployed(info.poolAddress, stakingToken, startTime, roundDurationInDays);
   }
 
   ///// permissionless functions
 
   /// @notice Deposit rewards. User need `approve` this contract to transfer rewards token before calling this method.
-  function depositRewards(address stakingToken, uint256 rewardsAmount) public {
+  function addRewards(address stakingToken, uint256 rewardsAmount) public {
     StakingPoolInfo storage info = stakingPoolInfoByStakingToken[stakingToken];
-    require(info.poolAddress != address(0), 'StakingPoolFactory::depositRewards: not deployed');
-    require(block.timestamp >= info.startTime, 'StakingPoolFactory::depositRewards: not ready');
+    require(info.poolAddress != address(0), 'StakingPoolFactory::addRewards: not deployed');
+    require(block.timestamp >= info.startTime, 'StakingPoolFactory::addRewards: not ready');
 
     if (rewardsAmount > 0) {
       info.totalRewardsAmount = info.totalRewardsAmount.add(rewardsAmount);
 
       require(
         IERC20(rewardsToken).transferFrom(msg.sender, info.poolAddress, rewardsAmount),
-        'StakingPoolFactory::depositRewards: transfer failed'
+        'StakingPoolFactory::addRewards: transfer failed'
       );
       StakingPool(info.poolAddress).notifyRewardAmount(rewardsAmount);
     }
