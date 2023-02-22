@@ -202,6 +202,18 @@ contract StETH is ERC20 {
   }
 
   /**
+   * @notice Moves `_amount` tokens from `_sender` to `_recipient`.
+   * Emits a `Transfer` event.
+   * Emits a `TransferShares` event.
+   */
+  function _transfer(address _sender, address _recipient, uint256 _amount) override internal {
+    uint256 _sharesToTransfer = getSharesByPooledEth(_amount);
+    _transferShares(_sender, _recipient, _sharesToTransfer);
+    emit Transfer(_sender, _recipient, _amount);
+    emit TransferShares(_sender, _recipient, _sharesToTransfer);
+  }
+
+  /**
    * @return the amount of shares owned by `_account`.
    */
   function _sharesOf(address _account) internal view returns (uint256) {
