@@ -157,7 +157,8 @@ contract StakingPool is IStakingPool, RewardsDistributionRecipient, ReentrancyGu
   }
 
   function _withdrawELRewards(address to, uint256 amount) internal virtual {
-    stakingToken.safeTransferFrom(address(this), to, amount);
+    // console.log('_withdrawELRewards, amount: %s, balance: %s', amount, stakingToken.balanceOf(address(this)));
+    stakingToken.safeTransfer(to, amount);
   }
 
   /* ========== MODIFIERS ========== */

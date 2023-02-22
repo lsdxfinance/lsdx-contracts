@@ -6,6 +6,7 @@ import { loadFixture } from '@nomicfoundation/hardhat-network-helpers';
 import { anyValue } from '@nomicfoundation/hardhat-chai-matchers/withArgs';
 import { ONE_DAY_IN_SECS, deployStakingPoolContractsFixture, expandTo18Decimals, expectBigNumberEquals } from './utils';
 import { StakingPool__factory } from '../typechain/factories/contracts/StakingPool__factory';
+import { BigNumber } from 'ethers';
 
 const { provider } = ethers;
 
@@ -13,7 +14,7 @@ describe('StETH Staking Pool', () => {
 
   it('Basic scenario works', async () => {
 
-    const { flyCoin, stakingPoolFactory, stETH, Alice, Bob, Caro } = await loadFixture(deployStakingPoolContractsFixture);
+    const { flyCoin, stakingPoolFactory, stETH, Alice, Bob, Caro, Dave } = await loadFixture(deployStakingPoolContractsFixture);
 
     // Deploy a staking pool, starting 1 day later, and lasts for 7 days
     const rewardStartTime = (await time.latest()) + ONE_DAY_IN_SECS;
@@ -27,6 +28,11 @@ describe('StETH Staking Pool', () => {
     await expect(flyCoin.connect(Alice).mint(Alice.address, totalReward)).not.to.be.reverted;
     await expect(stakingPoolFactory.connect(Alice).addRewards(stETH.address, totalReward)).to.be.rejectedWith(
       /StakingPoolFactory::addRewards: not ready/,
+    );
+
+    // Trying to withdraw stETH EL rewards should fail
+    await expect(stakingPoolFactory.connect(Alice).withdrawELRewards(stETH.address, Alice.address)).to.be.rejectedWith(
+      /StakingPoolFactory::withdrawELRewards: not ready/,
     );
 
     // But user should be able to stake now (without rewards)
@@ -56,6 +62,18 @@ describe('StETH Staking Pool', () => {
     await expect(stETHStakingPool.connect(Caro).stake(caroStakeAmount)).not.to.be.reverted;
     expect(await stETHStakingPool.totalSupply()).to.equal(bobStakeAmount.add(caroStakeAmount));
     expect(await stETHStakingPool.balanceOf(Caro.address)).to.equal(caroStakeAmount);
+
+    // Alice deposit EL rewards to stETH pool
+    expect(await stETH.balanceOf(stETHStakingPool.address)).to.equal(ethers.utils.parseEther('1000'));
+    const stETHELRewards = ethers.utils.parseEther('200');
+    await expect(stETH.connect(Alice).receiveELRewards({value: stETHELRewards}))
+      .to.changeEtherBalances([Alice.address, stETH.address], [ethers.utils.parseEther('-200'), stETHELRewards]);
+    expect(await stETH.balanceOf(stETHStakingPool.address)).to.equal(ethers.utils.parseEther('1200'));
+
+    // Trying to withdraw stETH EL rewards should fail
+    await expect(stakingPoolFactory.connect(Alice).withdrawELRewards(stETH.address, Alice.address)).to.be.rejectedWith(
+      /Not ready to withdraw EL rewards/,
+    );
 
     // 1_000_000 $FLY per day. Fast-forward to generate rewards
     await time.increaseTo(rewardStartTime + ONE_DAY_IN_SECS);
@@ -141,6 +159,21 @@ describe('StETH Staking Pool', () => {
     await time.increase(ONE_DAY_IN_SECS);
     expectBigNumberEquals(bobRewardsTillRound2.add(round3TotalRewardPerDay), await stETHStakingPool.earned(Bob.address));
 
+    // Fast-forward to period finish
+    await time.increaseTo(await stETHStakingPool.periodFinish());
+
+    // Bob exit
+    await expect(stETHStakingPool.connect(Bob).exit())
+      .to.emit(stETHStakingPool, 'Withdrawn').withArgs(Bob.address, anyValue)
+      .to.emit(stETHStakingPool, 'RewardPaid').withArgs(Bob.address, anyValue);
+    expect(await stETHStakingPool.totalSupply()).to.equal(0);
+    expect(await stETHStakingPool.balanceOf(Bob.address)).to.equal(0);
+
+    // Admin withdraw extra EL rewards
+    expectBigNumberEquals(stETHELRewards, await stETH.balanceOf(stETHStakingPool.address));
+    await expect(stakingPoolFactory.connect(Alice).withdrawELRewards(stETH.address, Dave.address))
+      .to.emit(stETHStakingPool, 'ELRewardWithdrawn').withArgs(Dave.address, anyValue);
+    expectBigNumberEquals(stETHELRewards, await stETH.balanceOf(Dave.address));
   });
 
 });

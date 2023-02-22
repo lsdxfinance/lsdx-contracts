@@ -74,13 +74,12 @@ contract StakingPoolFactory is Ownable {
   function withdrawELRewards(address stakingToken, address to) external onlyOwner {
     StakingPoolInfo storage info = stakingPoolInfoByStakingToken[stakingToken];
     require(info.poolAddress != address(0), 'StakingPoolFactory::withdrawELRewards: not deployed');
+    require(block.timestamp >= info.startTime, 'StakingPoolFactory::withdrawELRewards: not ready');
 
     StakingPool(payable(address(info.poolAddress))).withdrawELRewards(to);
   }
 
-  ///// permissionless functions
-
-  function addRewards(address stakingToken, uint256 rewardsAmount) public {
+  function addRewards(address stakingToken, uint256 rewardsAmount) public onlyOwner {
     StakingPoolInfo storage info = stakingPoolInfoByStakingToken[stakingToken];
     require(info.poolAddress != address(0), 'StakingPoolFactory::addRewards: not deployed');
     require(block.timestamp >= info.startTime, 'StakingPoolFactory::addRewards: not ready');
@@ -95,4 +94,5 @@ contract StakingPoolFactory is Ownable {
       StakingPool(payable(address(info.poolAddress))).notifyRewardAmount(rewardsAmount);
     }
   }
+
 }
