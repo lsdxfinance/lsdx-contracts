@@ -33,9 +33,15 @@ contract EthStakingPool is StakingPool {
     CurrencyTransferLib.transferCurrency(CurrencyTransferLib.NATIVE_TOKEN, address(this), msg.sender, amount);
   }
 
-  function _withdrawELRewards(address to, uint256 amount) override internal virtual {
-    weth.withdraw(amount);
+  // Admin could withdraw Ethers that are accidently sent to the pool
+  function withdrawELRewards(address to) external override virtual nonReentrant onlyRewardsDistribution {
+    require(block.timestamp >= periodFinish, 'Not ready to withdraw EL rewards');
+
+    uint256 amount = address(this).balance;
+    require(amount > 0, 'No extra EL rewards to withdraw');
+
     CurrencyTransferLib.transferCurrency(CurrencyTransferLib.NATIVE_TOKEN, address(this), to, amount);
+    emit ELRewardWithdrawn(to, amount);
   }
 
 }

@@ -13,7 +13,7 @@ describe('Staking Pool', () => {
 
   it('Basic scenario works', async () => {
 
-    const { flyCoin, stakingPoolFactory, erc20, Alice, Bob, Caro } = await loadFixture(deployStakingPoolContractsFixture);
+    const { flyCoin, stakingPoolFactory, erc20, Alice, Bob, Caro, Dave } = await loadFixture(deployStakingPoolContractsFixture);
 
     // Deploy a staking pool, starting 1 day later, and lasts for 7 days
     const rewardStartTime = (await time.latest()) + ONE_DAY_IN_SECS;
@@ -43,6 +43,11 @@ describe('Staking Pool', () => {
     await time.increase(ONE_DAY_IN_SECS / 2);
     expect(await erc20StakingPool.earned(Bob.address)).to.equal(0);
 
+    // Dave accidently transfer some staking token to this contract
+    const daveTransferAmount = expandTo18Decimals(100);
+    await expect(erc20.connect(Alice).mint(Dave.address, daveTransferAmount)).not.to.be.reverted;
+    await expect(erc20.connect(Dave).transfer(erc20StakingPool.address, daveTransferAmount)).not.to.be.reverted;
+
     // Fast-forward to reward start time, and deposit 7_000_000 $FLY as reward (1_000_000 per day)
     await time.increaseTo(rewardStartTime);
     await expect(flyCoin.connect(Alice).approve(stakingPoolFactory.address, totalReward)).not.to.be.reverted;
@@ -64,6 +69,10 @@ describe('Staking Pool', () => {
     const totalRewardPerDay = totalReward.div(rewardDurationInDays);
     expectBigNumberEquals(totalRewardPerDay.mul(9).div(10), await erc20StakingPool.earned(Bob.address));
     expectBigNumberEquals(totalRewardPerDay.mul(1).div(10), await erc20StakingPool.earned(Caro.address));
+
+    // Dave has no rewards
+    expect(await erc20StakingPool.balanceOf(Dave.address)).to.equal(0);
+    expect(await erc20StakingPool.earned(Dave.address)).to.equal(0);
 
     // Caro claim $FLY rewards
     await expect(erc20StakingPool.connect(Caro).getReward())
@@ -141,6 +150,20 @@ describe('Staking Pool', () => {
     // Fast-forward 1 more day. Bob gets all the reward
     await time.increase(ONE_DAY_IN_SECS);
     expectBigNumberEquals(bobRewardsTillRound2.add(round3TotalRewardPerDay), await erc20StakingPool.earned(Bob.address));
+
+    // Fast-forward to period finish
+    await time.increaseTo(await erc20StakingPool.periodFinish());
+
+    // Admin should be able to withdraw redundant staking tokens
+    await expect(stakingPoolFactory.connect(Alice).withdrawELRewards(erc20.address, Alice.address))
+      .to.emit(erc20StakingPool, 'ELRewardWithdrawn').withArgs(Alice.address, daveTransferAmount);
+
+    // Bob should be able to exit
+    await expect(erc20StakingPool.connect(Bob).exit())
+      .to.emit(erc20StakingPool, 'Withdrawn').withArgs(Bob.address, anyValue)
+      .to.emit(erc20StakingPool, 'RewardPaid').withArgs(Bob.address, anyValue);
+    expect(await erc20StakingPool.totalSupply()).to.equal(0);
+    expect(await erc20StakingPool.balanceOf(Bob.address)).to.equal(0);
   });
 
 });

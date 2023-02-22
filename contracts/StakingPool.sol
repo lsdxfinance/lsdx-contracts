@@ -149,16 +149,12 @@ contract StakingPool is IStakingPool, RewardsDistributionRecipient, ReentrancyGu
     require(block.timestamp >= periodFinish, 'Not ready to withdraw EL rewards');
 
     uint256 balance = stakingToken.balanceOf(address(this));
+    // console.log('withdrawELRewards, balance: %s, total supply:', balance, _totalSupply);
     require(balance > _totalSupply, 'No extra EL rewards to withdraw');
 
     uint256 amount = balance - _totalSupply;
-    _withdrawELRewards(to, amount);
-    emit ELRewardWithdrawn(to, amount);
-  }
-
-  function _withdrawELRewards(address to, uint256 amount) internal virtual {
-    // console.log('_withdrawELRewards, amount: %s, balance: %s', amount, stakingToken.balanceOf(address(this)));
     stakingToken.safeTransfer(to, amount);
+    emit ELRewardWithdrawn(to, amount);
   }
 
   /* ========== MODIFIERS ========== */

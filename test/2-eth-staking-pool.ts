@@ -13,7 +13,7 @@ describe('Eth Staking Pool', () => {
 
   it('Basic scenario works', async () => {
 
-    const { flyCoin, stakingPoolFactory, weth, Alice, Bob, Caro } = await loadFixture(deployStakingPoolContractsFixture);
+    const { flyCoin, stakingPoolFactory, weth, Alice, Bob, Caro, Dave } = await loadFixture(deployStakingPoolContractsFixture);
 
     // Deploy a staking pool, starting 1 day later, and lasts for 7 days
     const rewardStartTime = (await time.latest()) + ONE_DAY_IN_SECS;
@@ -30,6 +30,10 @@ describe('Eth Staking Pool', () => {
     );
 
     // console.log(ethers.utils.formatEther(await provider.getBalance(Alice.address)));
+    // Trying to withdraw extra ETH should fail
+    await expect(stakingPoolFactory.connect(Alice).withdrawELRewards(nativeTokenAddress, Alice.address)).to.be.rejectedWith(
+      /StakingPoolFactory::withdrawELRewards: not ready/,
+    );
 
     // But user should be able to stake now (without rewards)
     let bobStakeAmount = ethers.utils.parseEther('9000');
@@ -65,12 +69,25 @@ describe('Eth Staking Pool', () => {
     expect(await ethStakingPool.totalSupply()).to.equal(bobStakeAmount.add(caroStakeAmount));
     expect(await ethStakingPool.balanceOf(Caro.address)).to.equal(caroStakeAmount);
 
+    // Dave accidently transfer some staking token to this contract
+    const daveTransferAmount = ethers.utils.parseEther('100');
+    await expect(Dave.sendTransaction({to: ethStakingPool.address, value: daveTransferAmount})).not.to.be.reverted;
+    // console.log(ethers.utils.formatEther(await provider.getBalance(ethStakingPool.address)));
+
+    await expect(stakingPoolFactory.connect(Alice).withdrawELRewards(nativeTokenAddress, Alice.address)).to.be.rejectedWith(
+      /Not ready to withdraw EL rewards/,
+    );
+
     // 1_000_000 $FLY per day. Fast-forward to generate rewards
     await time.increaseTo(rewardStartTime + ONE_DAY_IN_SECS);
     // await time.increase(ONE_DAY_IN_SECS);
     const totalRewardPerDay = totalReward.div(rewardDurationInDays);
     expectBigNumberEquals(totalRewardPerDay.mul(9).div(10), await ethStakingPool.earned(Bob.address));
     expectBigNumberEquals(totalRewardPerDay.mul(1).div(10), await ethStakingPool.earned(Caro.address));
+
+     // Dave has no rewards
+    expect(await ethStakingPool.balanceOf(Dave.address)).to.equal(0);
+    expect(await ethStakingPool.earned(Dave.address)).to.equal(0);
 
     // Caro claim $FLY rewards
     await expect(ethStakingPool.connect(Caro).getReward())
@@ -154,6 +171,21 @@ describe('Eth Staking Pool', () => {
     // Fast-forward 1 more day. Bob gets all the reward
     await time.increase(ONE_DAY_IN_SECS);
     expectBigNumberEquals(bobRewardsTillRound2.add(round3TotalRewardPerDay), await ethStakingPool.earned(Bob.address));
+
+    // Fast-forward to period finish
+    await time.increaseTo(await ethStakingPool.periodFinish());
+
+    // Admin should be able to withdraw redundant staking tokens
+    console.log(ethers.utils.formatEther(await provider.getBalance(ethStakingPool.address)));
+    await expect(stakingPoolFactory.connect(Alice).withdrawELRewards(nativeTokenAddress, Alice.address))
+      .to.emit(ethStakingPool, 'ELRewardWithdrawn').withArgs(Alice.address, daveTransferAmount);
+
+    // Bob should be able to exit
+    await expect(ethStakingPool.connect(Bob).exit())
+      .to.emit(ethStakingPool, 'Withdrawn').withArgs(Bob.address, anyValue)
+      .to.emit(ethStakingPool, 'RewardPaid').withArgs(Bob.address, anyValue);
+    expect(await ethStakingPool.totalSupply()).to.equal(0);
+    expect(await ethStakingPool.balanceOf(Bob.address)).to.equal(0);
 
   });
 
