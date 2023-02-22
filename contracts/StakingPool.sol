@@ -145,6 +145,21 @@ contract StakingPool is IStakingPool, RewardsDistributionRecipient, ReentrancyGu
     emit RewardAdded(reward);
   }
 
+  function withdrawELRewards(address to) external virtual nonReentrant onlyRewardsDistribution {
+    require(block.timestamp >= periodFinish, 'Not ready to withdraw EL rewards');
+
+    uint256 balance = stakingToken.balanceOf(address(this));
+    require(balance > _totalSupply, 'No extra EL rewards to withdraw');
+
+    uint256 amount = balance - _totalSupply;
+    _withdrawELRewards(to, amount);
+    emit ELRewardWithdrawn(to, amount);
+  }
+
+  function _withdrawELRewards(address to, uint256 amount) internal virtual {
+    stakingToken.safeTransferFrom(address(this), to, amount);
+  }
+
   /* ========== MODIFIERS ========== */
 
   modifier updateReward(address account) {
@@ -163,4 +178,5 @@ contract StakingPool is IStakingPool, RewardsDistributionRecipient, ReentrancyGu
   event Staked(address indexed user, uint256 amount);
   event Withdrawn(address indexed user, uint256 amount);
   event RewardPaid(address indexed user, uint256 reward);
+  event ELRewardWithdrawn(address indexed to, uint256 amount);
 }

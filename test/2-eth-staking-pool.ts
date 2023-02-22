@@ -135,12 +135,12 @@ describe('Eth Staking Pool', () => {
     
     // Fast-forward to round 2 finish
     await time.increaseTo(await ethStakingPool.periodFinish());
-    const bobRewardsSinceRound2 = round1BobReward.add(round2TotalRewardPerDay.mul(68).div(10));
-    expectBigNumberEquals(bobRewardsSinceRound2, await ethStakingPool.earned(Bob.address));
+    const bobRewardsTillRound2 = round1BobReward.add(round2TotalRewardPerDay.mul(68).div(10));
+    expectBigNumberEquals(bobRewardsTillRound2, await ethStakingPool.earned(Bob.address));
 
     // Fast-forward 1 more day. No extra rewards are generated
     await time.increaseTo(await (await ethStakingPool.periodFinish()).add(ONE_DAY_IN_SECS));
-    expectBigNumberEquals(bobRewardsSinceRound2, await ethStakingPool.earned(Bob.address));
+    expectBigNumberEquals(bobRewardsTillRound2, await ethStakingPool.earned(Bob.address));
 
     // Admin start round 3
     const round3TotalReward = expandTo18Decimals(7_000_000);
@@ -153,7 +153,7 @@ describe('Eth Staking Pool', () => {
 
     // Fast-forward 1 more day. Bob gets all the reward
     await time.increase(ONE_DAY_IN_SECS);
-    expectBigNumberEquals(bobRewardsSinceRound2.add(round3TotalRewardPerDay), await ethStakingPool.earned(Bob.address));
+    expectBigNumberEquals(bobRewardsTillRound2.add(round3TotalRewardPerDay), await ethStakingPool.earned(Bob.address));
 
   });
 

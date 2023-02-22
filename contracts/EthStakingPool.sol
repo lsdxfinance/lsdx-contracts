@@ -33,4 +33,9 @@ contract EthStakingPool is StakingPool {
     CurrencyTransferLib.transferCurrency(CurrencyTransferLib.NATIVE_TOKEN, address(this), msg.sender, amount);
   }
 
+  function _withdrawELRewards(address to, uint256 amount) override internal virtual {
+    weth.withdraw(amount);
+    CurrencyTransferLib.transferCurrency(CurrencyTransferLib.NATIVE_TOKEN, address(this), to, amount);
+  }
+
 }

@@ -69,6 +69,15 @@ contract StakingPoolFactory is Ownable {
     emit StakingPoolDeployed(info.poolAddress, stakingToken, startTime, roundDurationInDays);
   }
 
+  // withdraw EL staking rewards from a staking pool after period finish.
+  // this is only intended for rebasable staking tokens like stETH
+  function withdrawELRewards(address stakingToken, address to) external onlyOwner {
+    StakingPoolInfo storage info = stakingPoolInfoByStakingToken[stakingToken];
+    require(info.poolAddress != address(0), 'StakingPoolFactory::withdrawELRewards: not deployed');
+
+    StakingPool(payable(address(info.poolAddress))).withdrawELRewards(to);
+  }
+
   ///// permissionless functions
 
   function addRewards(address stakingToken, uint256 rewardsAmount) public {
