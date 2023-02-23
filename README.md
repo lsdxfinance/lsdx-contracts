@@ -67,5 +67,5 @@ Edit `scripts/deployStakingPools.ts` with correct info, and then:
 $ hh run scripts/deployStakingPools.ts --network <mainnet/goerli>
 
 # Etherscan verify
-$ hh verify --network <mainnet/goerli> <pool-address> <StakingPoolFactory-address> <flycoin-address> <staking-token-address> <round-duration-in-days>
+$ hh verify --network <mainnet/goerli> <pool-address> <StakingPoolFactory-address> <flycoin-address> <staking-token-address | weth-address> <round-duration-in-days>
 ```
