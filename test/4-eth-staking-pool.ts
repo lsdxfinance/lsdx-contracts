@@ -176,7 +176,7 @@ describe('Eth Staking Pool', () => {
     await time.increaseTo(await ethStakingPool.periodFinish());
 
     // Admin should be able to withdraw redundant staking tokens
-    console.log(ethers.utils.formatEther(await provider.getBalance(ethStakingPool.address)));
+    // console.log(ethers.utils.formatEther(await provider.getBalance(ethStakingPool.address)));
     await expect(stakingPoolFactory.connect(Alice).withdrawELRewards(nativeTokenAddress, Alice.address))
       .to.emit(ethStakingPool, 'ELRewardWithdrawn').withArgs(Alice.address, daveTransferAmount);
 
