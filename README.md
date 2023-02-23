@@ -1,51 +1,71 @@
 # Leviosa Contracts
 
-## Quick start
+## Compile
 
 Cloning repository and install dependencies:
 
 ```sh
-$ git clone xxxx
+$ git clone <repository-url>
 
 $ cd leviosa-contracts
 
 $ yarn
 ```
-To compile contracts:
+Compile contracts:
 
 ```sh
 # Use `hardhat-shorthand`:
 $ hh compile
 
-# Use `yarn`:
+# Or, use `yarn`:
 $ yarn run hardhat compile
 
-# Use `npx`:
+# Or, use `npx`:
 $ npx hardhat compile
 ```
 
-To run test cases,
+## Run Test Cases
 
 ```sh
 $ hh test
 
 # To run test cases of a test file:
 $ hh test ./test/xxx.ts
-
-# To run all test cases with gas report:
-$ REPORT_GAS=true hh test
 ```
 
-To deploy to remote network
+## Deploy
+
+### Prepare `.env` 
+
+With same keys to `.env-example`
+
+### Deploy FlyCoin
 
 ```sh
-# Use `hardhat-shorthand`:
-$ hh run scripts/deploy.ts --network [mainnet/rinkeby/goerli]
+$ hh run scripts/deployFlyCoin.ts --network <mainnet/goerli>
+
+# Etherscan verify
+$ hh verify --network <mainnet/goerli> <address>
 ```
 
-To verify:
+### Deploy StakingPoolFactory
+
+Edit `scripts/deployStakingPoolFactory.ts` with correct address of FlyCoin and WETH, and then:
 
 ```sh
-# Use `hardhat-shorthand`:
-$ hh verify --network [mainnet/rinkeby/goerli] <address>
+$ hh run scripts/deployStakingPoolFactory.ts --network <mainnet/goerli>
+
+# Etherscan verify
+$ hh verify --network <mainnet/goerli> <address> <flycoin-address> <weth-address>
+```
+
+### Deploy StakingPools as needed
+
+Edit `scripts/deployStakingPools.ts` with correct info, and then:
+
+```sh
+$ hh run scripts/deployStakingPools.ts --network <mainnet/goerli>
+
+# Etherscan verify
+$ hh verify --network <mainnet/goerli> <pool-address> <StakingPoolFactory-address> <flycoin-address> <staking-token-address> <round-duration-in-days>
 ```

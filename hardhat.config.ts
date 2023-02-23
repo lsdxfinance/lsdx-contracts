@@ -90,12 +90,7 @@ const config: HardhatUserConfig = {
       rinkeby: process.env.ETHERSCAN_KEY || '',
       goerli: process.env.ETHERSCAN_KEY || '',
     },
-  },
-  gasReporter: {
-    coinmarketcap: process.env.COINMARKETCAP_KEY,
-    currency: "USD",
-    enabled: process.env.REPORT_GAS ? true : false,
-  },
+  }
 };
 
 if (privateKey) {
@@ -110,6 +105,8 @@ config.networks = {
   ...config.networks,
   hardhat: {
     chainId: 1337,
+    gas: 'auto',
+    gasPrice: 'auto'
   },
 };
 
