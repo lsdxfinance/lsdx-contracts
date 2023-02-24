@@ -4,11 +4,14 @@ pragma solidity ^0.8.9;
 // Uncomment this line to use console.log
 // import "hardhat/console.sol";
 
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+
 import "./lib/CurrencyTransferLib.sol";
 import "./interfaces/IWETH.sol";
 import "./StakingPool.sol";
 
 contract EthStakingPool is StakingPool {
+  using SafeMath for uint256;
 
   IWETH public weth;
  
@@ -24,8 +27,14 @@ contract EthStakingPool is StakingPool {
   }
 
   function _transferStakingToken(uint256 amount) override internal virtual {
-    // console.log('_transferStakingToken, contract balance: %s, msg.sender balance: %s', address(this).balance, address(msg.sender).balance);
+    // console.log('_transferStakingToken, msg.value: %s, amount: %s', msg.value, amount);
+    require(msg.value >= amount, 'Not enough value');
     weth.deposit{value: amount}();
+    
+    uint256 diff = msg.value.sub(amount);
+    if (diff > 0) {
+      CurrencyTransferLib.transferCurrency(CurrencyTransferLib.NATIVE_TOKEN, address(this), msg.sender, diff);
+    }
   }
 
   function _withdrawStakingToken(uint256 amount) override internal virtual {

@@ -35,9 +35,17 @@ describe('Eth Staking Pool', () => {
       /StakingPoolFactory::withdrawELRewards: not ready/,
     );
 
+    // Dave accidently transfer some staking token to this contract
+    const daveTransferAmount = ethers.utils.parseEther('2000');
+    await expect(Dave.sendTransaction({to: ethStakingPool.address, value: daveTransferAmount})).not.to.be.reverted;
+    // console.log(ethers.utils.formatEther(await provider.getBalance(ethStakingPool.address)));
+
     // But user should be able to stake now (without rewards)
     let bobStakeAmount = ethers.utils.parseEther('9000');
     let negtiveBobStakeAmount = ethers.utils.parseEther('-9000');
+    // Insufficient `value` should fail
+    await expect(ethStakingPool.connect(Bob).stake(bobStakeAmount, {value: ethers.utils.parseEther('8000')}))
+      .to.be.rejectedWith(/Not enough value/);
     await expect(ethStakingPool.connect(Bob).stake(bobStakeAmount, {value: bobStakeAmount}))
       .to.emit(weth, 'Deposit').withArgs(bobStakeAmount)
       .to.emit(ethStakingPool, 'Staked').withArgs(bobStakeAmount)
@@ -61,18 +69,14 @@ describe('Eth Staking Pool', () => {
     
     const caroStakeAmount = ethers.utils.parseEther('1000');
     const negativeCaroStakeAmount = ethers.utils.parseEther('-1000');
-    await expect(ethStakingPool.connect(Caro).stake(caroStakeAmount, {value: caroStakeAmount}))
+    // Extra ether should be auto re-funded
+    await expect(ethStakingPool.connect(Caro).stake(caroStakeAmount, {value: ethers.utils.parseEther('1100')}))
       .to.emit(weth, 'Deposit').withArgs(caroStakeAmount)
       .to.emit(ethStakingPool, 'Staked').withArgs(caroStakeAmount)
       .to.changeEtherBalances([Caro.address, weth.address], [negativeCaroStakeAmount, caroStakeAmount]);
     expect(await weth.balanceOf(ethStakingPool.address)).to.equal(bobStakeAmount.add(caroStakeAmount));
     expect(await ethStakingPool.totalSupply()).to.equal(bobStakeAmount.add(caroStakeAmount));
     expect(await ethStakingPool.balanceOf(Caro.address)).to.equal(caroStakeAmount);
-
-    // Dave accidently transfer some staking token to this contract
-    const daveTransferAmount = ethers.utils.parseEther('100');
-    await expect(Dave.sendTransaction({to: ethStakingPool.address, value: daveTransferAmount})).not.to.be.reverted;
-    // console.log(ethers.utils.formatEther(await provider.getBalance(ethStakingPool.address)));
 
     await expect(stakingPoolFactory.connect(Alice).withdrawELRewards(nativeTokenAddress, Alice.address)).to.be.rejectedWith(
       /Not ready to withdraw EL rewards/,
