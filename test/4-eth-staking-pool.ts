@@ -108,6 +108,7 @@ describe('Eth Staking Pool', () => {
     const bobWithdrawAmount = ethers.utils.parseEther('5000');
     bobStakeAmount = ethers.utils.parseEther('4000');
     // Now Bob's effective staking is 4000 and Caro's effective staking is 1000
+    await expect(ethStakingPool.connect(Bob).withdraw(ethers.utils.parseEther('10000'))).to.be.reverted;
     await expect(ethStakingPool.connect(Bob).withdraw(bobWithdrawAmount))
       .to.emit(weth, 'Withdrawal').withArgs(bobWithdrawAmount)
       .to.emit(ethStakingPool, 'Withdrawn').withArgs(Bob.address, bobWithdrawAmount)

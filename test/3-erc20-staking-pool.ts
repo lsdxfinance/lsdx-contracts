@@ -93,6 +93,7 @@ describe('Staking Pool', () => {
     const bobWithdrawAmount = expandTo18Decimals(5000);
     bobStakeAmount = expandTo18Decimals(9000 - 5000);
     // Now Bob's effective staking is 4000 and Caro's effective staking is 1000
+    await expect(erc20StakingPool.connect(Bob).withdraw(expandTo18Decimals(10_000))).to.be.reverted;
     await expect(erc20StakingPool.connect(Bob).withdraw(bobWithdrawAmount))
       .to.emit(erc20StakingPool, 'Withdrawn').withArgs(Bob.address, bobWithdrawAmount);
     expect(await erc20StakingPool.totalSupply()).to.equal(bobStakeAmount.add(caroStakeAmount));
