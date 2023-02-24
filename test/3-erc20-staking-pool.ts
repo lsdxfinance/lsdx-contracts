@@ -161,8 +161,13 @@ describe('Staking Pool', () => {
     await time.increaseTo(await erc20StakingPool.periodFinish());
 
     // Admin should be able to withdraw redundant staking tokens
-    await expect(stakingPoolFactory.connect(Alice).withdrawELRewards(erc20.address, Alice.address))
-      .to.emit(erc20StakingPool, 'ELRewardWithdrawn').withArgs(Alice.address, daveTransferAmount);
+    await expect(stakingPoolFactory.connect(Bob).withdrawELRewards(erc20.address, Bob.address))
+      .to.be.rejectedWith(/Ownable: caller is not the owner/);
+    await expect(erc20StakingPool.connect(Bob).withdrawELRewards(Bob.address))
+      .to.be.rejectedWith(/Caller is not RewardsDistribution contract/);
+    await expect(stakingPoolFactory.connect(Alice).withdrawELRewards(erc20.address, Dave.address))
+      .to.emit(erc20StakingPool, 'ELRewardWithdrawn').withArgs(Dave.address, daveTransferAmount);
+    expect(await erc20.balanceOf(Dave.address)).to.equal(daveTransferAmount);
 
     // Bob should be able to exit
     await expect(erc20StakingPool.connect(Bob).exit())

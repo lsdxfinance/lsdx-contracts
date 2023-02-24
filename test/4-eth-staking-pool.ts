@@ -177,8 +177,13 @@ describe('Eth Staking Pool', () => {
 
     // Admin should be able to withdraw redundant staking tokens
     // console.log(ethers.utils.formatEther(await provider.getBalance(ethStakingPool.address)));
+    await expect(stakingPoolFactory.connect(Bob).withdrawELRewards(nativeTokenAddress, Bob.address))
+      .to.be.rejectedWith(/Ownable: caller is not the owner/);
+    await expect(ethStakingPool.connect(Bob).withdrawELRewards(Bob.address))
+      .to.be.rejectedWith(/Caller is not RewardsDistribution contract/);
     await expect(stakingPoolFactory.connect(Alice).withdrawELRewards(nativeTokenAddress, Alice.address))
-      .to.emit(ethStakingPool, 'ELRewardWithdrawn').withArgs(Alice.address, daveTransferAmount);
+      .to.emit(ethStakingPool, 'ELRewardWithdrawn').withArgs(Alice.address, daveTransferAmount)
+      .to.changeEtherBalances([Alice.address], [daveTransferAmount]);
 
     // Bob should be able to exit
     await expect(ethStakingPool.connect(Bob).exit())

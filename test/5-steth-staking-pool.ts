@@ -171,6 +171,10 @@ describe('StETH Staking Pool', () => {
 
     // Admin withdraw extra EL rewards
     expectBigNumberEquals(stETHELRewards, await stETH.balanceOf(stETHStakingPool.address));
+    await expect(stakingPoolFactory.connect(Bob).withdrawELRewards(stETH.address, Bob.address))
+      .to.be.rejectedWith(/Ownable: caller is not the owner/);
+    await expect(stETHStakingPool.connect(Bob).withdrawELRewards(Bob.address))
+      .to.be.rejectedWith(/Caller is not RewardsDistribution contract/);
     await expect(stakingPoolFactory.connect(Alice).withdrawELRewards(stETH.address, Dave.address))
       .to.emit(stETHStakingPool, 'ELRewardWithdrawn').withArgs(Dave.address, anyValue);
     expectBigNumberEquals(stETHELRewards, await stETH.balanceOf(Dave.address));
