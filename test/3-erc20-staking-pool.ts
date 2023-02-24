@@ -4,10 +4,12 @@ import { expect } from 'chai';
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 import { loadFixture } from '@nomicfoundation/hardhat-network-helpers';
 import { anyValue } from '@nomicfoundation/hardhat-chai-matchers/withArgs';
-import { ONE_DAY_IN_SECS, deployStakingPoolContractsFixture, expandTo18Decimals, expectBigNumberEquals } from './utils';
+import { ONE_DAY_IN_SECS, deployStakingPoolContractsFixture, expandTo18Decimals, expectBigNumberEquals, nativeTokenAddress } from './utils';
 import { StakingPool__factory } from '../typechain/factories/contracts/StakingPool__factory';
 
 const { provider } = ethers;
+
+const dayjs = require('dayjs');
 
 describe('Staking Pool', () => {
 
@@ -56,6 +58,7 @@ describe('Staking Pool', () => {
     // Note: The exact `reward start time` is the block timestamp of `addRewards` transaction,
     // which does not exactly equal to `rewardStartTime`
     expect(await erc20StakingPool.periodFinish()).to.equal(await time.latest() + ONE_DAY_IN_SECS * rewardDurationInDays);
+    expect((await stakingPoolFactory.stakingPoolInfoByStakingToken(erc20.address)).totalRewardsAmount).to.equal(totalReward);
     
     const caroStakeAmount = expandTo18Decimals(1_000);
     await expect(erc20.connect(Caro).approve(erc20StakingPool.address, caroStakeAmount)).not.to.be.reverted;
@@ -69,6 +72,7 @@ describe('Staking Pool', () => {
     const totalRewardPerDay = totalReward.div(rewardDurationInDays);
     expectBigNumberEquals(totalRewardPerDay.mul(9).div(10), await erc20StakingPool.earned(Bob.address));
     expectBigNumberEquals(totalRewardPerDay.mul(1).div(10), await erc20StakingPool.earned(Caro.address));
+    // expect(await erc20StakingPool.earned(Bob.address)).to.be.closeTo(totalRewardPerDay.mul(9).div(10), 10);
 
     // Dave has no rewards
     expect(await erc20StakingPool.balanceOf(Dave.address)).to.equal(0);
@@ -109,6 +113,7 @@ describe('Staking Pool', () => {
     await expect(stakingPoolFactory.connect(Alice).addRewards(erc20.address, round2TotalReward))
       .to.emit(erc20StakingPool, 'RewardAdded').withArgs(round2TotalReward);
     expect(await erc20StakingPool.periodFinish()).to.equal(await time.latest() + ONE_DAY_IN_SECS * rewardDurationInDays);
+    expect((await stakingPoolFactory.stakingPoolInfoByStakingToken(erc20.address)).totalRewardsAmount).to.equal(totalReward.add(round2TotalReward));
 
     // Fast-forward 1 day. Now every day, Bob get 8/10 rewards, and Caro get 2/10 rewards
     await time.increaseTo(rewardStartTime + ONE_DAY_IN_SECS * 4);
@@ -146,6 +151,7 @@ describe('Staking Pool', () => {
     await expect(stakingPoolFactory.connect(Alice).addRewards(erc20.address, round3TotalReward))
       .to.emit(erc20StakingPool, 'RewardAdded').withArgs(round3TotalReward);
     expect(await erc20StakingPool.periodFinish()).to.equal(await time.latest() + ONE_DAY_IN_SECS * rewardDurationInDays);
+    expect((await stakingPoolFactory.stakingPoolInfoByStakingToken(erc20.address)).totalRewardsAmount).to.equal(totalReward.add(round2TotalReward).add(round3TotalReward));
 
     // Fast-forward 1 more day. Bob gets all the reward
     await time.increase(ONE_DAY_IN_SECS);
@@ -164,6 +170,76 @@ describe('Staking Pool', () => {
       .to.emit(erc20StakingPool, 'RewardPaid').withArgs(Bob.address, anyValue);
     expect(await erc20StakingPool.totalSupply()).to.equal(0);
     expect(await erc20StakingPool.balanceOf(Bob.address)).to.equal(0);
+  });
+
+  it('Deploying StakingPool fails if called twice for same token', async () => {
+
+    const { stakingPoolFactory, erc20, Alice } = await loadFixture(deployStakingPoolContractsFixture);
+
+    const rewardStartTime = (await time.latest()) + ONE_DAY_IN_SECS;
+    const rewardDurationInDays = 7;
+    await expect(stakingPoolFactory.connect(Alice).deployPool(erc20.address, rewardStartTime, rewardDurationInDays))
+      .to.emit(stakingPoolFactory, 'StakingPoolDeployed').withArgs(anyValue, erc20.address, rewardStartTime, rewardDurationInDays);
+
+    await expect(stakingPoolFactory.connect(Alice).deployPool(erc20.address, rewardStartTime, rewardDurationInDays))
+      .to.be.rejectedWith(
+        /StakingPoolFactory::deployPool: already deployed/,
+      );
+
+  });
+
+  it('Deploying StakingPool can only be called by the owner', async () => {
+
+    const { stakingPoolFactory, erc20, Bob } = await loadFixture(deployStakingPoolContractsFixture);
+
+    const rewardStartTime = (await time.latest()) + ONE_DAY_IN_SECS;
+    const rewardDurationInDays = 7;
+
+    await expect(stakingPoolFactory.connect(Bob).deployPool(erc20.address, rewardStartTime, rewardDurationInDays))
+      .to.be.rejectedWith(
+        /Ownable: caller is not the owner/,
+      );
+
+  });
+
+  it('Deployed StakingPools information is correctly stored', async () => {
+
+    const { stakingPoolFactory, erc20, Alice } = await loadFixture(deployStakingPoolContractsFixture);
+
+    const pools = [
+      {
+        stakingTokenName: 'ETH',
+        stakingTokenAddress: nativeTokenAddress,
+        startTime: dayjs('2025-02-23T12:00:00.000Z'), // UTC time
+        roundDurationInDays: 7
+      },
+      {
+        stakingTokenName: 'stETH',
+        stakingTokenAddress: erc20.address,
+        startTime: dayjs('2025-02-23T13:00:00.000Z'), // UTC time
+        roundDurationInDays: 3
+      }
+    ];
+
+    for (let i = 0; i < _.size(pools); i++) {
+      const pool = pools[i];
+      await expect(stakingPoolFactory.connect(Alice).deployPool(pool.stakingTokenAddress, pool.startTime.unix(), pool.roundDurationInDays))
+        .to.emit(stakingPoolFactory, 'StakingPoolDeployed').withArgs(anyValue, pool.stakingTokenAddress, pool.startTime.unix(), pool.roundDurationInDays);
+    }
+
+    expect(await stakingPoolFactory.getStakingTokens()).to.deep.equal([nativeTokenAddress, erc20.address]);
+
+    const ethStakingPoolInfo = await stakingPoolFactory.stakingPoolInfoByStakingToken(nativeTokenAddress);
+    expect(ethStakingPoolInfo.poolAddress).to.equal(await stakingPoolFactory.getStakingPoolAddress(nativeTokenAddress));
+    expect(ethStakingPoolInfo.startTime).to.equal(pools[0].startTime.unix());
+    expect(ethStakingPoolInfo.roundDurationInDays).to.equal(pools[0].roundDurationInDays);
+    expect(ethStakingPoolInfo.totalRewardsAmount).to.equal(0);
+
+    const erc20StakingPoolInfo = await stakingPoolFactory.stakingPoolInfoByStakingToken(erc20.address);
+    expect(erc20StakingPoolInfo.poolAddress).to.equal(await stakingPoolFactory.getStakingPoolAddress(erc20.address));
+    expect(erc20StakingPoolInfo.startTime).to.equal(pools[1].startTime.unix());
+    expect(erc20StakingPoolInfo.roundDurationInDays).to.equal(pools[1].roundDurationInDays);
+    expect(erc20StakingPoolInfo.totalRewardsAmount).to.equal(0);
   });
 
 });

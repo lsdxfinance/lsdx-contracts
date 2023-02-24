@@ -15,6 +15,9 @@ contract StakingPoolFactory is Ownable {
   address public rewardsToken;
   address public nativeTokenWrapper;
 
+  // the staking tokens for which the rewards contract has been deployed
+  address[] public stakingTokens;
+
   // info about rewards for a particular staking token
   struct StakingPoolInfo {
     address poolAddress;
@@ -47,6 +50,10 @@ contract StakingPoolFactory is Ownable {
     return info.poolAddress;
   }
 
+  function getStakingTokens() public virtual view returns (address[] memory) {
+    return stakingTokens;
+  }
+
   ///// permissioned functions
 
   // deploy a by-stages staking reward contract for the staking token
@@ -66,6 +73,7 @@ contract StakingPoolFactory is Ownable {
     info.roundDurationInDays = roundDurationInDays;
     info.totalRewardsAmount = 0;
 
+    stakingTokens.push(stakingToken);
     emit StakingPoolDeployed(info.poolAddress, stakingToken, startTime, roundDurationInDays);
   }
 
