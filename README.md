@@ -1,4 +1,4 @@
-# Leviosa Contracts
+# LSDx Contracts
 
 ## Compile
 
@@ -7,7 +7,7 @@ Cloning repository and install dependencies:
 ```sh
 $ git clone <repository-url>
 
-$ cd leviosa-contracts
+$ cd lsdx-contracts
 
 $ yarn
 ```

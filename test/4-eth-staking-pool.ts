@@ -36,7 +36,7 @@ describe('Eth Staking Pool', () => {
     );
 
     // Dave accidently transfer some staking token to this contract
-    const daveTransferAmount = ethers.utils.parseEther('2000');
+    const daveTransferAmount = ethers.utils.parseEther('9100');
     await expect(Dave.sendTransaction({to: ethStakingPool.address, value: daveTransferAmount})).not.to.be.reverted;
     // console.log(ethers.utils.formatEther(await provider.getBalance(ethStakingPool.address)));
 

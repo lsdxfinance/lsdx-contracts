@@ -1,7 +1,7 @@
 {
-  "name": "leviosa-contracts",
+  "name": "lsdx-contracts",
   "version": "1.0.0",
-  "repository": "git@github.com:xxxx/leviosa-contracts.git",
+  "repository": "git@github.com:xxxx/lsdx-contracts.git",
   "author": "cypfisher <crypto.fisher@outlook.com>",
   "license": "Apache-2.0",
   "devDependencies": {
