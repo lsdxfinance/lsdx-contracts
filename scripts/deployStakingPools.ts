@@ -25,7 +25,19 @@ const pools = [
     stakingTokenAddress: '0x1643E812aE58766192Cf7D2Cf9567dF2C37e9B7F',
     startTime: dayjs('2023-03-06T07:50:00.000Z'), // UTC time
     roundDurationInDays: 1
-  }
+  },
+  {
+    stakingTokenName: 'sfrxETH',
+    stakingTokenAddress: '0x7e74D46a4E7C0cce7E0c29EA080b55e6bEE2ff21',
+    startTime: dayjs('2023-03-06T13:50:00.000Z'), // UTC time
+    roundDurationInDays: 1
+  },
+  {
+    stakingTokenName: 'UNI-V2',
+    stakingTokenAddress: '0x4ee39d23773Fa2caa6c9AD9aeaD67491eB2aB095',
+    startTime: dayjs('2023-03-06T13:50:00.000Z'), // UTC time
+    roundDurationInDays: 1
+  },
 ];
 
 async function main() {
