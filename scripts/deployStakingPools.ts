@@ -12,19 +12,19 @@ const infuraKey: string = process.env.INFURA_KEY || "";
 
 // TODO: Update provider url、contract addresses and pools before running script
 const provider = new ethers.providers.JsonRpcProvider(`https://goerli.infura.io/v3/${infuraKey}`);
-const stakingPoolFactoryContractAddress = '0x805a54953fef803f1F47DC9B89DA039a501DDC2D';
+const stakingPoolFactoryContractAddress = '0x9d0206522434011D1C6F011376e57519D5C6E4Da';
 const pools = [
   {
     stakingTokenName: 'ETH',
     stakingTokenAddress: '0x0000000000000000000000000000000000000000',
-    startTime: dayjs('2023-02-23T12:00:00.000Z'), // UTC time
-    roundDurationInDays: 7
+    startTime: dayjs('2023-03-06T07:50:00.000Z'), // UTC time
+    roundDurationInDays: 1
   },
   {
     stakingTokenName: 'stETH',
     stakingTokenAddress: '0x1643E812aE58766192Cf7D2Cf9567dF2C37e9B7F',
-    startTime: dayjs('2023-02-23T13:00:00.000Z'), // UTC time
-    roundDurationInDays: 3
+    startTime: dayjs('2023-03-06T07:50:00.000Z'), // UTC time
+    roundDurationInDays: 1
   }
 ];
 

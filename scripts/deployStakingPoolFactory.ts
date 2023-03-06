@@ -1,7 +1,7 @@
 import { ethers } from "hardhat";
 
 // TODO: Update addresses before running script
-const lsdCoinAddress = '0x1EA8635Ac50564e35a93bf1f1431d057511093c6';
+const lsdCoinAddress = '0x6a45C5515CD20905e6A971A3185D82E8988aA826';
 const wethAddress = '0xb4fbf271143f4fbf7b91a5ded31805e42b2208d6';
 
 async function main() {

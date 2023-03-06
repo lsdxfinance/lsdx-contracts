@@ -20,7 +20,7 @@ contract LsdCoin is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, P
   }
 
   function initialize() initializer public {
-    __ERC20_init("LsdCoin", "LSD");
+    __ERC20_init("LSD Coin", "LSD");
     __ERC20Burnable_init();
     __Pausable_init();
     __AccessControl_init();
