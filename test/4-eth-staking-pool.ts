@@ -13,7 +13,7 @@ describe('Eth Staking Pool', () => {
 
   it('Basic scenario works', async () => {
 
-    const { flyCoin, stakingPoolFactory, weth, Alice, Bob, Caro, Dave } = await loadFixture(deployStakingPoolContractsFixture);
+    const { lsdCoin, stakingPoolFactory, weth, Alice, Bob, Caro, Dave } = await loadFixture(deployStakingPoolContractsFixture);
 
     // Deploy a staking pool, starting 1 day later, and lasts for 7 days
     const rewardStartTime = (await time.latest()) + ONE_DAY_IN_SECS;
@@ -24,7 +24,7 @@ describe('Eth Staking Pool', () => {
   
     // Trying to deposit rewards before start should fail
     const totalReward = expandTo18Decimals(7_000_000);
-    await expect(flyCoin.connect(Alice).mint(Alice.address, totalReward)).not.to.be.reverted;
+    await expect(lsdCoin.connect(Alice).mint(Alice.address, totalReward)).not.to.be.reverted;
     await expect(stakingPoolFactory.connect(Alice).addRewards(nativeTokenAddress, totalReward)).to.be.rejectedWith(
       /StakingPoolFactory::addRewards: not ready/,
     );
@@ -58,9 +58,9 @@ describe('Eth Staking Pool', () => {
     await time.increase(ONE_DAY_IN_SECS / 2);
     expect(await ethStakingPool.earned(Bob.address)).to.equal(0);
 
-    // Fast-forward to reward start time, and deposit 7_000_000 $FLY as reward (1_000_000 per day)
+    // Fast-forward to reward start time, and deposit 7_000_000 $LSD as reward (1_000_000 per day)
     await time.increaseTo(rewardStartTime);
-    await expect(flyCoin.connect(Alice).approve(stakingPoolFactory.address, totalReward)).not.to.be.reverted;
+    await expect(lsdCoin.connect(Alice).approve(stakingPoolFactory.address, totalReward)).not.to.be.reverted;
     await expect(stakingPoolFactory.connect(Alice).addRewards(nativeTokenAddress, totalReward))
       .to.emit(ethStakingPool, 'RewardAdded').withArgs(totalReward);
     // Note: The exact `reward start time` is the block timestamp of `addRewards` transaction,
@@ -82,7 +82,7 @@ describe('Eth Staking Pool', () => {
       /Not ready to withdraw EL rewards/,
     );
 
-    // 1_000_000 $FLY per day. Fast-forward to generate rewards
+    // 1_000_000 $LSD per day. Fast-forward to generate rewards
     await time.increaseTo(rewardStartTime + ONE_DAY_IN_SECS);
     // await time.increase(ONE_DAY_IN_SECS);
     const totalRewardPerDay = totalReward.div(rewardDurationInDays);
@@ -93,11 +93,11 @@ describe('Eth Staking Pool', () => {
     expect(await ethStakingPool.balanceOf(Dave.address)).to.equal(0);
     expect(await ethStakingPool.earned(Dave.address)).to.equal(0);
 
-    // Caro claim $FLY rewards
+    // Caro claim $LSD rewards
     await expect(ethStakingPool.connect(Caro).getReward())
       .to.emit(ethStakingPool, 'RewardPaid').withArgs(Caro.address, anyValue);
     expect(await ethStakingPool.earned(Caro.address)).to.equal(0);
-    expectBigNumberEquals(await flyCoin.balanceOf(Caro.address), totalRewardPerDay.mul(1).div(10));
+    expectBigNumberEquals(await lsdCoin.balanceOf(Caro.address), totalRewardPerDay.mul(1).div(10));
 
     // Fast-forward 1 day. Bob's reward: 9/10 + 9/10;  Caro's reward: 1/10
     await time.increaseTo(rewardStartTime + ONE_DAY_IN_SECS * 2);
@@ -127,8 +127,8 @@ describe('Eth Staking Pool', () => {
     // Remaining days are extended to 7;  Reward per day from now on: (7_000_000 * 4 / 7  + 14_000_000) / 7
     const round2TotalReward = expandTo18Decimals(14_000_000);
     const round2TotalRewardPerDay = totalReward.mul(4).div(7).add(round2TotalReward).div(rewardDurationInDays);
-    await expect(flyCoin.connect(Alice).mint(Alice.address, round2TotalReward)).not.to.be.reverted;
-    await expect(flyCoin.connect(Alice).approve(stakingPoolFactory.address, round2TotalReward)).not.to.be.reverted;
+    await expect(lsdCoin.connect(Alice).mint(Alice.address, round2TotalReward)).not.to.be.reverted;
+    await expect(lsdCoin.connect(Alice).approve(stakingPoolFactory.address, round2TotalReward)).not.to.be.reverted;
     await expect(stakingPoolFactory.connect(Alice).addRewards(nativeTokenAddress, round2TotalReward))
       .to.emit(ethStakingPool, 'RewardAdded').withArgs(round2TotalReward);
     expect(await ethStakingPool.periodFinish()).to.equal(await time.latest() + ONE_DAY_IN_SECS * rewardDurationInDays);
@@ -167,8 +167,8 @@ describe('Eth Staking Pool', () => {
     // Admin start round 3
     const round3TotalReward = expandTo18Decimals(7_000_000);
     const round3TotalRewardPerDay = round3TotalReward.div(rewardDurationInDays);
-    await expect(flyCoin.connect(Alice).mint(Alice.address, round3TotalReward)).not.to.be.reverted;
-    await expect(flyCoin.connect(Alice).approve(stakingPoolFactory.address, round3TotalReward)).not.to.be.reverted;
+    await expect(lsdCoin.connect(Alice).mint(Alice.address, round3TotalReward)).not.to.be.reverted;
+    await expect(lsdCoin.connect(Alice).approve(stakingPoolFactory.address, round3TotalReward)).not.to.be.reverted;
     await expect(stakingPoolFactory.connect(Alice).addRewards(nativeTokenAddress, round3TotalReward))
       .to.emit(ethStakingPool, 'RewardAdded').withArgs(round3TotalReward);
     expect(await ethStakingPool.periodFinish()).to.equal(await time.latest() + ONE_DAY_IN_SECS * rewardDurationInDays);

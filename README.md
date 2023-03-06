@@ -39,10 +39,10 @@ $ hh test ./test/xxx.ts
 
 With same keys to `.env-example`
 
-### Deploy FlyCoin
+### Deploy LsdCoin
 
 ```sh
-$ hh run scripts/deployFlyCoin.ts --network <mainnet/goerli>
+$ hh run scripts/deployLsdCoin.ts --network <mainnet/goerli>
 
 # Etherscan verify
 $ hh verify --network <mainnet/goerli> <address>
@@ -50,13 +50,13 @@ $ hh verify --network <mainnet/goerli> <address>
 
 ### Deploy StakingPoolFactory
 
-Edit `scripts/deployStakingPoolFactory.ts` with correct address of FlyCoin and WETH, and then:
+Edit `scripts/deployStakingPoolFactory.ts` with correct address of LsdCoin and WETH, and then:
 
 ```sh
 $ hh run scripts/deployStakingPoolFactory.ts --network <mainnet/goerli>
 
 # Etherscan verify
-$ hh verify --network <mainnet/goerli> <address> <flycoin-address> <weth-address>
+$ hh verify --network <mainnet/goerli> <address> <lsdcoin-address> <weth-address>
 ```
 
 ### Deploy StakingPools as needed
@@ -67,5 +67,5 @@ Edit `scripts/deployStakingPools.ts` with correct info, and then:
 $ hh run scripts/deployStakingPools.ts --network <mainnet/goerli>
 
 # Etherscan verify
-$ hh verify --network <mainnet/goerli> <pool-address> <StakingPoolFactory-address> <flycoin-address> <staking-token-address | weth-address> <round-duration-in-days>
+$ hh verify --network <mainnet/goerli> <pool-address> <StakingPoolFactory-address> <lsdcoin-address> <staking-token-address | weth-address> <round-duration-in-days>
 ```

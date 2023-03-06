@@ -9,7 +9,7 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/draft-ERC20Pe
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
-contract FlyCoin is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, PausableUpgradeable, AccessControlUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
+contract LsdCoin is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, PausableUpgradeable, AccessControlUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
   bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
   bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
   bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
@@ -20,11 +20,11 @@ contract FlyCoin is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, P
   }
 
   function initialize() initializer public {
-    __ERC20_init("FlyCoin", "FLY");
+    __ERC20_init("LsdCoin", "LSD");
     __ERC20Burnable_init();
     __Pausable_init();
     __AccessControl_init();
-    __ERC20Permit_init("FlyCoin");
+    __ERC20Permit_init("LsdCoin");
     __UUPSUpgradeable_init();
 
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);

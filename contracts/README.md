@@ -1,7 +1,7 @@
 
-# FlyCoin
+# LsdCoin
 
-FlyCoin 是一个标准的 ERC20 合约，它具有以下功能：
+LsdCoin 是一个标准的 ERC20 合约，它具有以下功能：
 
 ### 权限控制
 
@@ -31,9 +31,9 @@ Staking Pool 的核心机制和 Uniswap V2 的 LP Staking 相同。核心合约�
 
 ### StakingPool
 
-- StakingPool 的机制比较灵活，挖矿活动可以分成很多个阶段 (round，以天为单位)，每个 round 对应不同数量的 $FLY 奖励
+- StakingPool 的机制比较灵活，挖矿活动可以分成很多个阶段 (round，以天为单位)，每个 round 对应不同数量的 $LSD 奖励
 
-- 假设一个 round 是 7 天，那么 admin 每次调用 StakingPoolFactory.addRewards() 时，都会开启一个新的为期 7 天的挖矿周期， $FLY 奖励按 7 天平均发放
+- 假设一个 round 是 7 天，那么 admin 每次调用 StakingPoolFactory.addRewards() 时，都会开启一个新的为期 7 天的挖矿周期， $LSD 奖励按 7 天平均发放
 
 - 如果调用 StakingPoolFactory.addRewards() 时，上一个 round 还没有结束 (比如只过去了 3 天)，那么剩余的奖励也会叠加到新的为期 7 天的挖矿周期中，平均释放
 
@@ -43,23 +43,23 @@ Staking Pool 的核心机制和 Uniswap V2 的 LP Staking 相同。核心合约�
 
 - `periodFinish()`：挖矿结束时间 (当前这个 round)
 
-- `rewardRate()`：每一秒发放的 $FLY 总量
+- `rewardRate()`：每一秒发放的 $LSD 总量
 
-- `rewardPerToken()`：当前每一个 staking token 对应的 $FLY 奖励
+- `rewardPerToken()`：当前每一个 staking token 对应的 $LSD 奖励
 
 - `totalSupply()`：用户当前存入的 staking token 的总量
 
 - `balanceOf()`：每个用户存入的 staking token 的数量
 
-- `earned()`：用户待提出的 $FLY 奖励的数量
+- `earned()`：用户待提出的 $LSD 奖励的数量
 
-- `getReward()`：提取 $FLY 奖励
+- `getReward()`：提取 $LSD 奖励
 
 - `stake()`：质押 staking token 开始挖矿
 
 - `withdraw()`: 提取部分或者全部 staking token
 
-- `exit()`：提取 $FLY 奖励并退出全部 staking token
+- `exit()`：提取 $LSD 奖励并退出全部 staking token
 
 
 ### stETH 利息收入

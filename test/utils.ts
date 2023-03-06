@@ -4,7 +4,7 @@ import { StakingPoolFactory__factory } from '../typechain/factories/contracts/St
 import { WETH9__factory } from '../typechain/factories/contracts/test/WETH9__factory';
 import { TestERC20__factory } from '../typechain/factories/contracts/test/TestERC20__factory';
 import { StETH__factory } from '../typechain/factories/contracts/test/StETH__factory';
-import { FlyCoin__factory } from '../typechain/factories/contracts/FlyCoin__factory';
+import { LsdCoin__factory } from '../typechain/factories/contracts/LsdCoin__factory';
 
 const { provider, BigNumber } = ethers;
 
@@ -14,9 +14,9 @@ export const nativeTokenAddress = '0x0000000000000000000000000000000000000000';
 
 export async function deployStakingPoolContractsFixture() {
 
-  const FlyCoin = await ethers.getContractFactory('FlyCoin');
-  const flyCoinProxy = await upgrades.deployProxy(FlyCoin, []);
-  const flyCoin = FlyCoin__factory.connect(flyCoinProxy.address, provider);
+  const LsdCoin = await ethers.getContractFactory('LsdCoin');
+  const lsdCoinProxy = await upgrades.deployProxy(LsdCoin, []);
+  const lsdCoin = LsdCoin__factory.connect(lsdCoinProxy.address, provider);
 
   const WETH9 = await ethers.getContractFactory('WETH9');
   const WETH9Contract = await WETH9.deploy();
@@ -27,7 +27,7 @@ export async function deployStakingPoolContractsFixture() {
   const stETH = StETH__factory.connect(StETHContract.address, provider);
 
   const StakingPoolFactory = await ethers.getContractFactory('StakingPoolFactory');
-  const stakingPoolFactoryContract = await StakingPoolFactory.deploy(flyCoinProxy.address, weth.address);
+  const stakingPoolFactoryContract = await StakingPoolFactory.deploy(lsdCoinProxy.address, weth.address);
   const stakingPoolFactory = StakingPoolFactory__factory.connect(stakingPoolFactoryContract.address, provider);
 
   const TestERC20 = await ethers.getContractFactory('TestERC20');
@@ -36,7 +36,7 @@ export async function deployStakingPoolContractsFixture() {
 
   const  [Alice, Bob, Caro, Dave]  = await ethers.getSigners();
 
-  return { flyCoin, stakingPoolFactory, weth, stETH, erc20, Alice, Bob, Caro, Dave };
+  return { lsdCoin, stakingPoolFactory, weth, stETH, erc20, Alice, Bob, Caro, Dave };
 }
 
 export function expandTo18Decimals(n: number) {
