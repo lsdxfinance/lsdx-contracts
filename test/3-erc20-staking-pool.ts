@@ -248,4 +248,41 @@ describe('Staking Pool', () => {
     expect(erc20StakingPoolInfo.totalRewardsAmount).to.equal(0);
   });
 
+  it('Ownership can be transferred', async () => {
+    const { lsdCoin, stakingPoolFactory, erc20, Alice, Bob, Caro, Dave } = await loadFixture(deployStakingPoolContractsFixture);
+
+    // Bob should fail to deploy a pool
+    const rewardStartTime = (await time.latest()) + ONE_DAY_IN_SECS;
+    const rewardDurationInDays = 7;
+    await expect(stakingPoolFactory.connect(Bob).deployPool(erc20.address, rewardStartTime, rewardDurationInDays))
+      .to.be.rejectedWith(/Ownable: caller is not the owner/);
+
+    // Alice transfer ownership to Bob
+    await expect(stakingPoolFactory.connect(Alice).transferOwnership(Bob.address))
+      .to.emit(stakingPoolFactory, 'OwnershipTransferred').withArgs(Alice.address, Bob.address);
+
+    // Alice lose ownership
+    await expect(stakingPoolFactory.connect(Alice).deployPool(erc20.address, rewardStartTime, rewardDurationInDays))
+      .to.be.rejectedWith(/Ownable: caller is not the owner/);
+
+    // Bob should be able to call admin functions
+    await expect(stakingPoolFactory.connect(Bob).deployPool(erc20.address, rewardStartTime, rewardDurationInDays))
+      .to.emit(stakingPoolFactory, 'StakingPoolDeployed').withArgs(anyValue, erc20.address, rewardStartTime, rewardDurationInDays);
+    const erc20StakingPool = StakingPool__factory.connect(await stakingPoolFactory.getStakingPoolAddress(erc20.address), provider);
+
+    const totalReward = expandTo18Decimals(1_000_000);
+    await expect(lsdCoin.connect(Alice).mint(Alice.address, totalReward)).not.to.be.reverted;
+    await expect(lsdCoin.connect(Alice).mint(Bob.address, totalReward)).not.to.be.reverted;
+
+    await time.increaseTo(rewardStartTime);
+    await expect(lsdCoin.connect(Alice).approve(stakingPoolFactory.address, totalReward)).not.to.be.reverted;
+    await expect(lsdCoin.connect(Bob).approve(stakingPoolFactory.address, totalReward)).not.to.be.reverted;
+
+    // Only Bob should be able to add rewards or deposit el rewards
+    await expect(stakingPoolFactory.connect(Alice).addRewards(erc20.address, totalReward))
+      .to.be.rejectedWith(/Ownable: caller is not the owner/);
+    await expect(stakingPoolFactory.connect(Bob).addRewards(erc20.address, totalReward))
+      .to.emit(erc20StakingPool, 'RewardAdded').withArgs(totalReward);
+  });
+
 });
