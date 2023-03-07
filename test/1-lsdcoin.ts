@@ -64,7 +64,32 @@ describe('LsdCoin', () => {
     await expect(lsdCoin.connect(Bob).mint(Bob.address, 10_000)).to.be.rejectedWith(
       /AccessControl/,
     );
+
+    // Alice could grant DEFAULT_ADMIN_ROLE to Bob
+    const defaultAdminRole = await lsdCoin.DEFAULT_ADMIN_ROLE();
+    await expect(lsdCoin.connect(Alice).grantRole(defaultAdminRole, Bob.address))
+      .to.emit(lsdCoin, 'RoleGranted').withArgs(defaultAdminRole, Bob.address, Alice.address);
     
+    // Alice reounce all roles including DEFAULT_ADMIN_ROLE
+    const pauserRole = await lsdCoin.PAUSER_ROLE();
+    const upgradeRole = await lsdCoin.UPGRADER_ROLE();
+    await expect(lsdCoin.connect(Alice).renounceRole(defaultAdminRole, Alice.address))
+      .to.emit(lsdCoin, 'RoleRevoked').withArgs(defaultAdminRole, Alice.address, Alice.address);
+    await expect(lsdCoin.connect(Alice).renounceRole(minterRole, Alice.address))
+      .to.emit(lsdCoin, 'RoleRevoked').withArgs(minterRole, Alice.address, Alice.address);
+    await expect(lsdCoin.connect(Alice).renounceRole(pauserRole, Alice.address))
+      .to.emit(lsdCoin, 'RoleRevoked').withArgs(pauserRole, Alice.address, Alice.address);
+    await expect(lsdCoin.connect(Alice).renounceRole(upgradeRole, Alice.address))
+      .to.emit(lsdCoin, 'RoleRevoked').withArgs(upgradeRole, Alice.address, Alice.address);
+    
+    // Now Alice could NOT grant roles
+    await expect(lsdCoin.connect(Alice).grantRole(minterRole, Alice.address)).to.be.rejectedWith(
+      /AccessControl/,
+    );
+    
+    // With DEFAULT_ADMIN_ROLE, Bob could grant roles
+    await expect(lsdCoin.connect(Bob).grantRole(minterRole, Bob.address))
+      .to.emit(lsdCoin, 'RoleGranted').withArgs(minterRole, Bob.address, Bob.address);
   });
 
   it('Pausable', async () => {
