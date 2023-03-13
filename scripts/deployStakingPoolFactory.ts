@@ -1,8 +1,12 @@
 import { ethers } from "hardhat";
 
-// TODO: Update addresses before running script
-const lsdCoinAddress = '0x6a45C5515CD20905e6A971A3185D82E8988aA826';
-const wethAddress = '0xb4fbf271143f4fbf7b91a5ded31805e42b2208d6';
+// // Goerli
+// const lsdCoinAddress = '0x6a45C5515CD20905e6A971A3185D82E8988aA826';
+// const wethAddress = '0xb4fbf271143f4fbf7b91a5ded31805e42b2208d6';
+
+// mainnet
+const lsdCoinAddress = '';
+const wethAddress = '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2';
 
 async function main() {
   const StakingPoolFactory = await ethers.getContractFactory("StakingPoolFactory");

@@ -10,32 +10,39 @@ dotenv.config();
 const privateKey: string = process.env.PRIVATE_KEY || "";
 const infuraKey: string = process.env.INFURA_KEY || "";
 
-// TODO: Update provider url、contract addresses and pools before running script
-const provider = new ethers.providers.JsonRpcProvider(`https://goerli.infura.io/v3/${infuraKey}`);
-const stakingPoolFactoryContractAddress = '0x9d0206522434011D1C6F011376e57519D5C6E4Da';
+// // Goerli
+// const provider = new ethers.providers.JsonRpcProvider(`https://goerli.infura.io/v3/${infuraKey}`);
+// const stakingPoolFactoryContractAddress = '0x9d0206522434011D1C6F011376e57519D5C6E4Da';
+
+// mainnet
+const provider = new ethers.providers.JsonRpcProvider(`https://mainnet.infura.io/v3/${infuraKey}`);
+const stakingPoolFactoryContractAddress = '';
 const pools = [
   {
     stakingTokenName: 'ETH',
     stakingTokenAddress: '0x0000000000000000000000000000000000000000',
-    startTime: dayjs('2023-03-06T07:50:00.000Z'), // UTC time
+    startTime: dayjs('2023-03-16T9:00:00.000Z'), // UTC time
     roundDurationInDays: 7
   },
   {
     stakingTokenName: 'stETH',
-    stakingTokenAddress: '0x1643E812aE58766192Cf7D2Cf9567dF2C37e9B7F',
-    startTime: dayjs('2023-03-06T07:50:00.000Z'), // UTC time
+    // stakingTokenAddress: '0x1643E812aE58766192Cf7D2Cf9567dF2C37e9B7F', // Goerli
+    stakingTokenAddress: '0xae7ab96520de3a18e5e111b5eaab095312d7fe84',
+    startTime: dayjs('2023-03-16T9:00:00.000Z'), // UTC time
     roundDurationInDays: 7
   },
   {
-    stakingTokenName: 'sfrxETH',
-    stakingTokenAddress: '0x7e74D46a4E7C0cce7E0c29EA080b55e6bEE2ff21',
-    startTime: dayjs('2023-03-06T13:50:00.000Z'), // UTC time
+    stakingTokenName: 'frxETH',
+    // stakingTokenAddress: '0x6Bc98c23e1b72e5aA4b627f814c475071FF2dB47', // Goerli
+    stakingTokenAddress: '0x5E8422345238F34275888049021821E8E08CAa1f',
+    startTime: dayjs('2023-03-16T9:00:00.000Z'), // UTC time
     roundDurationInDays: 7
   },
   {
-    stakingTokenName: 'UNI-V2',
-    stakingTokenAddress: '0x4ee39d23773Fa2caa6c9AD9aeaD67491eB2aB095',
-    startTime: dayjs('2023-03-06T13:50:00.000Z'), // UTC time
+    stakingTokenName: 'LSD-ETH UNI V2 LP',
+    // stakingTokenAddress: '0x4ee39d23773Fa2caa6c9AD9aeaD67491eB2aB095', // Goerli
+    stakingTokenAddress: '',
+    startTime: dayjs('2023-03-16T9:00:00.000Z'), // UTC time
     roundDurationInDays: 7
   },
 ];
