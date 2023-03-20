@@ -5,7 +5,7 @@ import { ethers } from "hardhat";
 // const wethAddress = '0xb4fbf271143f4fbf7b91a5ded31805e42b2208d6';
 
 // mainnet
-const lsdCoinAddress = '';
+const lsdCoinAddress = '0xfAC77A24E52B463bA9857d6b758ba41aE20e31FF';
 const wethAddress = '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2';
 
 async function main() {

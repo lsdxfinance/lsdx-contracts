@@ -178,6 +178,63 @@ describe('Staking Pool', () => {
     expect(await erc20StakingPool.balanceOf(Bob.address)).to.equal(0);
   });
 
+  it('Discontinued staking works', async () => {
+
+    const { lsdCoin, stakingPoolFactory, erc20, Alice, Bob, Caro } = await loadFixture(deployStakingPoolContractsFixture);
+
+    // Deploy a staking pool, starting 1 day later, and lasts for 7 days
+    const rewardStartTime = (await time.latest()) + ONE_DAY_IN_SECS;
+    const rewardDurationInDays = 7;
+    await expect(stakingPoolFactory.connect(Alice).deployPool(erc20.address, rewardStartTime, rewardDurationInDays))
+      .to.emit(stakingPoolFactory, 'StakingPoolDeployed').withArgs(anyValue, erc20.address, rewardStartTime, rewardDurationInDays);
+    const erc20StakingPool = StakingPool__factory.connect(await stakingPoolFactory.getStakingPoolAddress(erc20.address), provider);
+  
+    await expect(erc20.connect(Alice).mint(Bob.address, expandTo18Decimals(10_000))).not.to.be.reverted;
+    await expect(erc20.connect(Alice).mint(Caro.address, expandTo18Decimals(10_000))).not.to.be.reverted;
+
+    // Fast-forward to reward start time, and deposit 7_000_000 $LSD as reward (1_000_000 per day)
+    await time.increaseTo(rewardStartTime);
+    const totalReward = expandTo18Decimals(7_000_000);
+    await expect(lsdCoin.connect(Alice).mint(Alice.address, totalReward)).not.to.be.reverted;
+    await expect(lsdCoin.connect(Alice).approve(stakingPoolFactory.address, totalReward)).not.to.be.reverted;
+    await expect(stakingPoolFactory.connect(Alice).addRewards(erc20.address, totalReward))
+      .to.emit(erc20StakingPool, 'RewardAdded').withArgs(totalReward);
+    // Note: The exact `reward start time` is the block timestamp of `addRewards` transaction,
+    // which does not exactly equal to `rewardStartTime`
+    expect(await erc20StakingPool.periodFinish()).to.equal(await time.latest() + ONE_DAY_IN_SECS * rewardDurationInDays);
+    expect((await stakingPoolFactory.stakingPoolInfoByStakingToken(erc20.address)).totalRewardsAmount).to.equal(totalReward);
+    
+    // Fast-forward by one day, with no staking
+    await time.increaseTo(rewardStartTime + ONE_DAY_IN_SECS);
+    expect(await erc20StakingPool.totalSupply()).to.equal(0);
+
+    let bobStakeAmount = expandTo18Decimals(1_000);
+    await expect(erc20.connect(Bob).approve(erc20StakingPool.address, bobStakeAmount)).not.to.be.reverted;
+    await expect(erc20StakingPool.connect(Bob).stake(bobStakeAmount)).not.to.be.reverted;
+    expect(await erc20StakingPool.totalSupply()).to.equal(bobStakeAmount);
+    expect(await erc20StakingPool.balanceOf(Bob.address)).to.equal(bobStakeAmount);
+
+    // Fast-forward by one day
+    await time.increaseTo(rewardStartTime + ONE_DAY_IN_SECS * 2);
+
+    // Bob should get 1 day reward
+    const totalRewardPerDay = totalReward.div(rewardDurationInDays);
+    expectBigNumberEquals(totalRewardPerDay, await erc20StakingPool.earned(Bob.address));
+
+    // Fast-forward to end
+    await time.increaseTo(rewardStartTime + ONE_DAY_IN_SECS * 8);
+
+    // Bob exit
+    await expect(erc20StakingPool.connect(Bob).exit())
+      .to.emit(erc20StakingPool, 'Withdrawn').withArgs(Bob.address, anyValue)
+      .to.emit(erc20StakingPool, 'RewardPaid').withArgs(Bob.address, anyValue);
+    expect(await erc20StakingPool.totalSupply()).to.equal(0);
+    expect(await erc20StakingPool.balanceOf(Bob.address)).to.equal(0);
+
+    // 1 day rewards remains in the pool
+    expectBigNumberEquals(totalRewardPerDay, await lsdCoin.balanceOf(erc20StakingPool.address));
+  });
+
   it('Deploying StakingPool fails if called twice for same token', async () => {
 
     const { stakingPoolFactory, erc20, Alice } = await loadFixture(deployStakingPoolContractsFixture);
