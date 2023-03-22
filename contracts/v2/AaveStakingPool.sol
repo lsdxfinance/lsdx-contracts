@@ -46,6 +46,12 @@ contract AaveStakingPool is StakingPoolV2 {
     stakingToken.safeTransfer(msg.sender, amount);
   }
 
+  function adminRewards() external override virtual returns (uint256) {
+    uint256 balance = aToken.balanceOf(address(this));
+    require(balance >= _totalSupply, 'Not admin rewards');
+    return balance - _totalSupply;
+  }
+
   function withdrawAdminRewards(address to) external override virtual nonReentrant onlyOwner {
     uint256 balance = aToken.balanceOf(address(this));
     uint256 amount = balance - _totalSupply;

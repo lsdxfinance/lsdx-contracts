@@ -7,6 +7,10 @@ import { StETH__factory } from '../typechain/factories/contracts/test/StETH__fac
 import { FrxETH__factory } from '../typechain/factories/contracts/test/frxETH.sol/FrxETH__factory';
 import { SfrxETH__factory } from '../typechain/factories/contracts/test/sfrxETH.sol/SfrxETH__factory';
 import { LsdCoin__factory } from '../typechain/factories/contracts/LsdCoin__factory';
+import { PlainStakingPool__factory } from '../typechain/factories/contracts/v2/PlainStakingPool__factory';
+import { FraxStakingPool__factory } from '../typechain/factories/contracts/v2/FraxStakingPool__factory';
+import { AaveStakingPool__factory } from '../typechain/factories/contracts/v2/AaveStakingPool__factory';
+import { AaveEthStakingPool__factory } from '../typechain/factories/contracts/v2/AaveEthStakingPool__factory';
 
 const { provider, BigNumber } = ethers;
 
@@ -45,7 +49,11 @@ export async function deployStakingPoolContractsFixture() {
   const erc20Proxy = await upgrades.deployProxy(TestERC20, ['Test ERC20', 'ERC20']);
   const erc20 = TestERC20__factory.connect(erc20Proxy.address, provider);
 
-  return { lsdCoin, stakingPoolFactory, weth, stETH, frxETH, sfrxETH, erc20, Alice, Bob, Caro, Dave };
+  const PlainStakingPool = await ethers.getContractFactory('PlainStakingPool');
+  const PlainStakingPoolContract = await PlainStakingPool.deploy(lsdCoin.address, erc20.address, 7);
+  const v2PlainStakingPool = PlainStakingPool__factory.connect(PlainStakingPoolContract.address, provider);
+
+  return { lsdCoin, stakingPoolFactory, v2PlainStakingPool, weth, stETH, frxETH, sfrxETH, erc20, Alice, Bob, Caro, Dave };
 }
 
 export function expandTo18Decimals(n: number) {

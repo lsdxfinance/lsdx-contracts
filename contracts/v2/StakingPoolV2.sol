@@ -32,8 +32,6 @@ abstract contract StakingPoolV2 is IStakingPool, Ownable, ReentrancyGuard {
   uint256 internal _totalSupply;
   mapping(address => uint256) private _balances;
 
-  error Unsupported();
-
   /* ========== CONSTRUCTOR ========== */
 
   constructor(
@@ -150,6 +148,8 @@ abstract contract StakingPoolV2 is IStakingPool, Ownable, ReentrancyGuard {
     periodFinish = block.timestamp.add(rewardsDuration);
     emit RewardAdded(reward);
   }
+
+  function adminRewards() external virtual returns (uint256);
 
   function withdrawAdminRewards(address to) external virtual;
 

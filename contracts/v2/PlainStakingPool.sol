@@ -23,7 +23,17 @@ contract PlainStakingPool is StakingPoolV2 {
 
   }
 
-  function withdrawAdminRewards(address) external override virtual onlyOwner {
-    revert Unsupported();
+  function adminRewards() external override virtual returns (uint256) {
+    uint256 balance = stakingToken.balanceOf(address(this));
+    return balance - _totalSupply;
+  }
+
+  function withdrawAdminRewards(address to) external override virtual onlyOwner {
+    uint256 balance = stakingToken.balanceOf(address(this));
+    if (balance > _totalSupply) {
+      uint256 amount = balance.sub(_totalSupply);
+      stakingToken.safeTransfer(to, amount);
+      emit AdminRewardWithdrawn(to, amount);
+    }
   }
 }

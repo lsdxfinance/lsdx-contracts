@@ -44,13 +44,20 @@ contract FraxStakingPool is StakingPoolV2 {
     stakingToken.safeTransfer(msg.sender, amount);
   }
 
+  function adminRewards() external override virtual returns (uint256) {
+    uint256 sfrxETHAmount = sfrxETH.balanceOf(address(this));
+    uint256 frxETHAmount = sfrxETHAmount.mulDiv(sfrxETH.pricePerShare(), 1e18, Math.Rounding.Down);
+    require(frxETHAmount >= _totalSupply, 'Not admin rewards');
+    return frxETHAmount - _totalSupply;
+  }
+
   function withdrawAdminRewards(address to) external override virtual nonReentrant onlyOwner {
     uint256 sfrxETHAmount = sfrxETH.balanceOf(address(this));
     uint256 frxETHAmount = sfrxETHAmount.mulDiv(sfrxETH.pricePerShare(), 1e18, Math.Rounding.Down);
     if (frxETHAmount > _totalSupply) {
-      uint256 adminRewards = frxETHAmount.sub(_totalSupply);
-      stakingToken.safeTransfer(to, adminRewards);
-      emit AdminRewardWithdrawn(to, adminRewards);
+      uint256 _adminRewards = frxETHAmount.sub(_totalSupply);
+      stakingToken.safeTransfer(to, _adminRewards);
+      emit AdminRewardWithdrawn(to, _adminRewards);
     }
   }
 
