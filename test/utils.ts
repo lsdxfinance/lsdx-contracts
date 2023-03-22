@@ -9,8 +9,6 @@ import { SfrxETH__factory } from '../typechain/factories/contracts/test/sfrxETH.
 import { LsdCoin__factory } from '../typechain/factories/contracts/LsdCoin__factory';
 import { PlainStakingPool__factory } from '../typechain/factories/contracts/v2/PlainStakingPool__factory';
 import { FraxStakingPool__factory } from '../typechain/factories/contracts/v2/FraxStakingPool__factory';
-import { AaveStakingPool__factory } from '../typechain/factories/contracts/v2/AaveStakingPool__factory';
-import { AaveEthStakingPool__factory } from '../typechain/factories/contracts/v2/AaveEthStakingPool__factory';
 
 const { provider, BigNumber } = ethers;
 

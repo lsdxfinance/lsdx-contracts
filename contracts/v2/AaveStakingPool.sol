@@ -48,7 +48,7 @@ contract AaveStakingPool is StakingPoolV2 {
 
   function adminRewards() external override virtual view returns (uint256) {
     uint256 balance = aToken.balanceOf(address(this));
-    require(balance >= _totalSupply, 'Not admin rewards');
+    require(balance >= _totalSupply, 'No admin rewards');
     return balance - _totalSupply;
   }
 

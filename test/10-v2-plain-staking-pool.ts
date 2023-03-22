@@ -34,7 +34,7 @@ describe('V2 Plain Staking Pool', () => {
     await expect(erc20.connect(Alice).mint(Dave.address, daveTransferAmount)).not.to.be.reverted;
     await expect(erc20.connect(Dave).transfer(v2PlainStakingPool.address, daveTransferAmount)).not.to.be.reverted;
 
-    //Ddeposit 7_000_000 $LSD as reward (1_000_000 per day)
+    // Deposit 7_000_000 $LSD as reward (1_000_000 per day)
     const rewardStartTime = await time.latest();
     await expect(lsdCoin.connect(Alice).approve(v2PlainStakingPool.address, totalReward)).not.to.be.reverted;
     await expect(v2PlainStakingPool.connect(Alice).addRewards(totalReward))

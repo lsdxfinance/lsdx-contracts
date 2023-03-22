@@ -47,7 +47,7 @@ contract FraxStakingPool is StakingPoolV2 {
   function adminRewards() external override virtual view returns (uint256) {
     uint256 sfrxETHAmount = sfrxETH.balanceOf(address(this));
     uint256 frxETHAmount = sfrxETHAmount.mulDiv(sfrxETH.pricePerShare(), 1e18, Math.Rounding.Down);
-    require(frxETHAmount >= _totalSupply, 'Not admin rewards');
+    require(frxETHAmount >= _totalSupply, 'No admin rewards');
     return frxETHAmount - _totalSupply;
   }
 
