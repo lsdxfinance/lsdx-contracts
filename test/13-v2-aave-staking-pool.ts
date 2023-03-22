@@ -88,12 +88,14 @@ describe('V2 AAVE Staking Pool', () => {
     await expect(erc20.connect(Alice).mint(pool.address, adminRewards)).not.to.be.reverted;
     expect(await aaveStakingPool.adminRewards()).to.equal(adminRewards);
 
+    const prevDaveBalance = await erc20.balanceOf(Dave.address);
     await expect(aaveStakingPool.connect(Bob).withdrawAdminRewards(Bob.address))
       .to.be.rejectedWith(/Ownable: caller is not the owner/);
     await expect(aaveStakingPool.connect(Alice).withdrawAdminRewards(Dave.address))
       .to.emit(aaveStakingPool, 'AdminRewardWithdrawn').withArgs(Dave.address, adminRewards);
     expect(await aaveStakingPool.adminRewards()).to.equal(0);
-    await expect(pool.connect(Dave).withdraw(erc20.address, adminRewards, Dave.address)).not.to.be.reverted;
+    const daveBalance = await erc20.balanceOf(Dave.address);
+    expect(daveBalance).to.equal(prevDaveBalance.add(adminRewards));
 
     // Fast-forward 1 day. Bob's reward: 9/10 + 9/10;  Caro's reward: 1/10
     await time.increaseTo(rewardStartTime + ONE_DAY_IN_SECS * 2);

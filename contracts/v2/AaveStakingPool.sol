@@ -56,7 +56,7 @@ contract AaveStakingPool is StakingPoolV2 {
     uint256 balance = aToken.balanceOf(address(this));
     uint256 amount = balance - _totalSupply;
     if (amount > 0) {
-      aToken.transfer(to, amount);
+      aavePool.withdraw(address(stakingToken), amount, to);
       emit AdminRewardWithdrawn(to, amount);
     }
   }

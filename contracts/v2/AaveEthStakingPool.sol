@@ -52,4 +52,16 @@ contract AaveEthStakingPool is AaveStakingPool {
     // Transfer ETH to user
     CurrencyTransferLib.transferCurrency(CurrencyTransferLib.NATIVE_TOKEN, address(this), msg.sender, amount);
   }
+
+  function withdrawAdminRewards(address to) external override virtual nonReentrant onlyOwner {
+    uint256 balance = aToken.balanceOf(address(this));
+    uint256 amount = balance - _totalSupply;
+    if (amount > 0) {
+      aavePool.withdraw(address(weth), amount, address(this));
+      weth.withdraw(amount);
+      CurrencyTransferLib.transferCurrency(CurrencyTransferLib.NATIVE_TOKEN, address(this), to, amount);
+      emit AdminRewardWithdrawn(to, amount);
+    }
+  }
+
 }

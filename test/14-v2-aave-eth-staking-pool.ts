@@ -7,12 +7,11 @@ import { anyValue } from '@nomicfoundation/hardhat-chai-matchers/withArgs';
 import { Pool__factory } from '../typechain/factories/contracts/test/AToken.sol/Pool__factory';
 import { AToken__factory } from '../typechain/factories/contracts/test/AToken.sol/AToken__factory';
 import { AaveEthStakingPool__factory } from '../typechain/factories/contracts/v2/AaveEthStakingPool__factory';
-import { ONE_DAY_IN_SECS, nativeTokenAddress, deployStakingPoolContractsFixture, expandTo18Decimals, expectBigNumberEquals } from './utils';
-import { StakingPool__factory } from '../typechain/factories/contracts/StakingPool__factory';
+import { ONE_DAY_IN_SECS, deployStakingPoolContractsFixture, expandTo18Decimals, expectBigNumberEquals } from './utils';
 
 const { provider } = ethers;
 
-describe('AAVE ETH Staking Pool', () => {
+describe('V2 AAVE ETH Staking Pool', () => {
 
   it('Basic scenario works', async () => {
 
@@ -137,9 +136,9 @@ describe('AAVE ETH Staking Pool', () => {
     await expect(aaveEthStakingPool.connect(Bob).withdrawAdminRewards(Bob.address))
     .to.be.rejectedWith(/Ownable: caller is not the owner/);
     await expect(aaveEthStakingPool.connect(Alice).withdrawAdminRewards(Dave.address))
-      .to.emit(aaveEthStakingPool, 'AdminRewardWithdrawn').withArgs(Dave.address, adminRewards);
+      .to.emit(aaveEthStakingPool, 'AdminRewardWithdrawn').withArgs(Dave.address, adminRewards)
+      .to.changeEtherBalances([Dave.address], [adminRewards]);
     expect(await aaveEthStakingPool.adminRewards()).to.equal(0);
-    await expect(pool.connect(Dave).withdraw(weth.address, adminRewards, Dave.address)).not.to.be.reverted;
 
     // Fast-forward 1 day. Now every day, Bob get 8/10 rewards, and Caro get 2/10 rewards
     await time.increaseTo(rewardStartTime + ONE_DAY_IN_SECS * 4);
