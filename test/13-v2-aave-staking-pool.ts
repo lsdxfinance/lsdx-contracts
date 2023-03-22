@@ -93,6 +93,7 @@ describe('V2 AAVE Staking Pool', () => {
     await expect(aaveStakingPool.connect(Alice).withdrawAdminRewards(Dave.address))
       .to.emit(aaveStakingPool, 'AdminRewardWithdrawn').withArgs(Dave.address, adminRewards);
     expect(await aaveStakingPool.adminRewards()).to.equal(0);
+    await expect(pool.connect(Dave).withdraw(erc20.address, adminRewards, Dave.address)).not.to.be.reverted;
 
     // Fast-forward 1 day. Bob's reward: 9/10 + 9/10;  Caro's reward: 1/10
     await time.increaseTo(rewardStartTime + ONE_DAY_IN_SECS * 2);
