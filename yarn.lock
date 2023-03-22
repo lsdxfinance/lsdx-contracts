@@ -2,6 +2,23 @@
 # yarn lockfile v1
 
 
+"@aave/core-v3@1.17.0":
+  version "1.17.0"
+  resolved "https://registry.yarnpkg.com/@aave/core-v3/-/core-v3-1.17.0.tgz#9b6569900c66e16971054f8f70f3d1856cc9c477"
+  integrity sha512-vcGEPcoDILN1ZBXeqRsK+TXp1VGDvYxaiq/ZJ2XT2/134PbmXAlNlZIrGw1b4WIwIG4egNu8OW6whyWjp/aLlA==
+
+"@aave/core-v3@^1.17.2":
+  version "1.17.2"
+  resolved "https://registry.yarnpkg.com/@aave/core-v3/-/core-v3-1.17.2.tgz#dfb543da87d4d6429e0c277b46b84057349f590f"
+  integrity sha512-ztCyKTALoeOQy6MlWVRCvHgilh6vT+d6lwjXhIsmlEYlA0v3L6dQBIyTFIzHBUfcpEjs0T3tSmcVxGY+GAUZ1g==
+
+"@aave/periphery-v3@^2.0.1":
+  version "2.0.1"
+  resolved "https://registry.yarnpkg.com/@aave/periphery-v3/-/periphery-v3-2.0.1.tgz#5ddec50dbb89865336422e7b94e097c08c08d1e1"
+  integrity sha512-7vOo0jFFD/zG+zosmX9fwBTE0M77R9O6Bwer/CIBxwwcvZaAuQUU9ego/mJdNVuuofQPr9cfDfRMzoc0p3OSTQ==
+  dependencies:
+    "@aave/core-v3" "1.17.0"
+
 "@cspotcode/source-map-support@^0.8.0":
   version "0.8.1"
   resolved "https://registry.yarnpkg.com/@cspotcode/source-map-support/-/source-map-support-0.8.1.tgz#00629c35a688e05a88b1cda684fb9d5e73f000a1"
