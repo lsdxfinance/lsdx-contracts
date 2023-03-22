@@ -23,7 +23,7 @@ contract PlainStakingPool is StakingPoolV2 {
 
   }
 
-  function adminRewards() external override virtual returns (uint256) {
+  function adminRewards() external override virtual view returns (uint256) {
     uint256 balance = stakingToken.balanceOf(address(this));
     return balance - _totalSupply;
   }

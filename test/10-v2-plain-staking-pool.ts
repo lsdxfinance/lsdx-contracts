@@ -1,19 +1,13 @@
 import _ from 'lodash';
-import { ethers } from 'hardhat';
 import { expect } from 'chai';
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 import { loadFixture } from '@nomicfoundation/hardhat-network-helpers';
 import { anyValue } from '@nomicfoundation/hardhat-chai-matchers/withArgs';
-import { ONE_DAY_IN_SECS, deployStakingPoolContractsFixture, expandTo18Decimals, expectBigNumberEquals, nativeTokenAddress } from './utils';
-import { StakingPool__factory } from '../typechain/factories/contracts/StakingPool__factory';
-
-const { provider } = ethers;
-
-const dayjs = require('dayjs');
+import { ONE_DAY_IN_SECS, deployStakingPoolContractsFixture, expandTo18Decimals, expectBigNumberEquals } from './utils';
 
 describe('V2 Plain Staking Pool', () => {
 
-  it.only('Basic scenario works', async () => {
+  it('Basic scenario works', async () => {
 
     const { lsdCoin, v2PlainStakingPool, erc20, Alice, Bob, Caro, Dave } = await loadFixture(deployStakingPoolContractsFixture);
 
@@ -139,7 +133,7 @@ describe('V2 Plain Staking Pool', () => {
     await expect(v2PlainStakingPool.connect(Alice).addRewards(round3TotalReward))
       .to.emit(v2PlainStakingPool, 'RewardAdded').withArgs(round3TotalReward);
     expect(await v2PlainStakingPool.periodFinish()).to.equal(await time.latest() + ONE_DAY_IN_SECS * rewardDurationInDays);
-    // expect((await stakingPoolFactory.stakingPoolInfoByStakingToken(erc20.address)).totalRewardsAmount).to.equal(totalReward.add(round2TotalReward).add(round3TotalReward));
+    // expect((await v2PlainStakingPool.stakingPoolInfoByStakingToken(erc20.address)).totalRewardsAmount).to.equal(totalReward.add(round2TotalReward).add(round3TotalReward));
 
     // Fast-forward 1 more day. Bob gets all the reward
     await time.increase(ONE_DAY_IN_SECS);
@@ -149,6 +143,7 @@ describe('V2 Plain Staking Pool', () => {
     await time.increaseTo(await v2PlainStakingPool.periodFinish());
 
     // Admin should be able to withdraw redundant staking tokens
+    expect(await v2PlainStakingPool.adminRewards()).to.equal(daveTransferAmount);
     await expect(v2PlainStakingPool.connect(Bob).withdrawAdminRewards(Bob.address))
       .to.be.rejectedWith(/Ownable: caller is not the owner/);
     await expect(v2PlainStakingPool.connect(Alice).withdrawAdminRewards(Dave.address))
@@ -165,166 +160,74 @@ describe('V2 Plain Staking Pool', () => {
 
   it('Discontinued staking works', async () => {
 
-    const { lsdCoin, stakingPoolFactory, erc20, Alice, Bob, Caro } = await loadFixture(deployStakingPoolContractsFixture);
+    const { lsdCoin, v2PlainStakingPool, erc20, Alice, Bob, Caro } = await loadFixture(deployStakingPoolContractsFixture);
 
-    // Deploy a staking pool, starting 1 day later, and lasts for 7 days
-    const rewardStartTime = (await time.latest()) + ONE_DAY_IN_SECS;
     const rewardDurationInDays = 7;
-    await expect(stakingPoolFactory.connect(Alice).deployPool(erc20.address, rewardStartTime, rewardDurationInDays))
-      .to.emit(stakingPoolFactory, 'StakingPoolDeployed').withArgs(anyValue, erc20.address, rewardStartTime, rewardDurationInDays);
-    const erc20StakingPool = StakingPool__factory.connect(await stakingPoolFactory.getStakingPoolAddress(erc20.address), provider);
-  
     await expect(erc20.connect(Alice).mint(Bob.address, expandTo18Decimals(10_000))).not.to.be.reverted;
     await expect(erc20.connect(Alice).mint(Caro.address, expandTo18Decimals(10_000))).not.to.be.reverted;
 
-    // Fast-forward to reward start time, and deposit 7_000_000 $LSD as reward (1_000_000 per day)
-    await time.increaseTo(rewardStartTime);
+    // Deposit 7_000_000 $LSD as reward (1_000_000 per day)
+    const rewardStartTime = await time.latest();
     const totalReward = expandTo18Decimals(7_000_000);
     await expect(lsdCoin.connect(Alice).mint(Alice.address, totalReward)).not.to.be.reverted;
-    await expect(lsdCoin.connect(Alice).approve(stakingPoolFactory.address, totalReward)).not.to.be.reverted;
-    await expect(stakingPoolFactory.connect(Alice).addRewards(erc20.address, totalReward))
-      .to.emit(erc20StakingPool, 'RewardAdded').withArgs(totalReward);
+    await expect(lsdCoin.connect(Alice).approve(v2PlainStakingPool.address, totalReward)).not.to.be.reverted;
+    await expect(v2PlainStakingPool.connect(Alice).addRewards(totalReward))
+      .to.emit(v2PlainStakingPool, 'RewardAdded').withArgs(totalReward);
     // Note: The exact `reward start time` is the block timestamp of `addRewards` transaction,
     // which does not exactly equal to `rewardStartTime`
-    expect(await erc20StakingPool.periodFinish()).to.equal(await time.latest() + ONE_DAY_IN_SECS * rewardDurationInDays);
-    expect((await stakingPoolFactory.stakingPoolInfoByStakingToken(erc20.address)).totalRewardsAmount).to.equal(totalReward);
+    expect(await v2PlainStakingPool.periodFinish()).to.equal(await time.latest() + ONE_DAY_IN_SECS * rewardDurationInDays);
     
     // Fast-forward by one day, with no staking
     await time.increaseTo(rewardStartTime + ONE_DAY_IN_SECS);
-    expect(await erc20StakingPool.totalSupply()).to.equal(0);
+    expect(await v2PlainStakingPool.totalSupply()).to.equal(0);
 
     let bobStakeAmount = expandTo18Decimals(1_000);
-    await expect(erc20.connect(Bob).approve(erc20StakingPool.address, bobStakeAmount)).not.to.be.reverted;
-    await expect(erc20StakingPool.connect(Bob).stake(bobStakeAmount)).not.to.be.reverted;
-    expect(await erc20StakingPool.totalSupply()).to.equal(bobStakeAmount);
-    expect(await erc20StakingPool.balanceOf(Bob.address)).to.equal(bobStakeAmount);
+    await expect(erc20.connect(Bob).approve(v2PlainStakingPool.address, bobStakeAmount)).not.to.be.reverted;
+    await expect(v2PlainStakingPool.connect(Bob).stake(bobStakeAmount)).not.to.be.reverted;
+    expect(await v2PlainStakingPool.totalSupply()).to.equal(bobStakeAmount);
+    expect(await v2PlainStakingPool.balanceOf(Bob.address)).to.equal(bobStakeAmount);
 
     // Fast-forward by one day
     await time.increaseTo(rewardStartTime + ONE_DAY_IN_SECS * 2);
 
     // Bob should get 1 day reward
     const totalRewardPerDay = totalReward.div(rewardDurationInDays);
-    expectBigNumberEquals(totalRewardPerDay, await erc20StakingPool.earned(Bob.address));
+    expectBigNumberEquals(totalRewardPerDay, await v2PlainStakingPool.earned(Bob.address));
 
     // Fast-forward to end
     await time.increaseTo(rewardStartTime + ONE_DAY_IN_SECS * 8);
 
     // Bob exit
-    await expect(erc20StakingPool.connect(Bob).exit())
-      .to.emit(erc20StakingPool, 'Withdrawn').withArgs(Bob.address, anyValue)
-      .to.emit(erc20StakingPool, 'RewardPaid').withArgs(Bob.address, anyValue);
-    expect(await erc20StakingPool.totalSupply()).to.equal(0);
-    expect(await erc20StakingPool.balanceOf(Bob.address)).to.equal(0);
+    await expect(v2PlainStakingPool.connect(Bob).exit())
+      .to.emit(v2PlainStakingPool, 'Withdrawn').withArgs(Bob.address, anyValue)
+      .to.emit(v2PlainStakingPool, 'RewardPaid').withArgs(Bob.address, anyValue);
+    expect(await v2PlainStakingPool.totalSupply()).to.equal(0);
+    expect(await v2PlainStakingPool.balanceOf(Bob.address)).to.equal(0);
 
     // 1 day rewards remains in the pool
-    expectBigNumberEquals(totalRewardPerDay, await lsdCoin.balanceOf(erc20StakingPool.address));
-  });
-
-  it('Deploying StakingPool fails if called twice for same token', async () => {
-
-    const { stakingPoolFactory, erc20, Alice } = await loadFixture(deployStakingPoolContractsFixture);
-
-    const rewardStartTime = (await time.latest()) + ONE_DAY_IN_SECS;
-    const rewardDurationInDays = 7;
-    await expect(stakingPoolFactory.connect(Alice).deployPool(erc20.address, rewardStartTime, rewardDurationInDays))
-      .to.emit(stakingPoolFactory, 'StakingPoolDeployed').withArgs(anyValue, erc20.address, rewardStartTime, rewardDurationInDays);
-
-    await expect(stakingPoolFactory.connect(Alice).deployPool(erc20.address, rewardStartTime, rewardDurationInDays))
-      .to.be.rejectedWith(
-        /StakingPoolFactory::deployPool: already deployed/,
-      );
-
-  });
-
-  it('Deploying StakingPool can only be called by the owner', async () => {
-
-    const { stakingPoolFactory, erc20, Bob } = await loadFixture(deployStakingPoolContractsFixture);
-
-    const rewardStartTime = (await time.latest()) + ONE_DAY_IN_SECS;
-    const rewardDurationInDays = 7;
-
-    await expect(stakingPoolFactory.connect(Bob).deployPool(erc20.address, rewardStartTime, rewardDurationInDays))
-      .to.be.rejectedWith(
-        /Ownable: caller is not the owner/,
-      );
-
-  });
-
-  it('Deployed StakingPools information is correctly stored', async () => {
-
-    const { stakingPoolFactory, erc20, Alice } = await loadFixture(deployStakingPoolContractsFixture);
-
-    const pools = [
-      {
-        stakingTokenName: 'ETH',
-        stakingTokenAddress: nativeTokenAddress,
-        startTime: dayjs('2025-02-23T12:00:00.000Z'), // UTC time
-        roundDurationInDays: 7
-      },
-      {
-        stakingTokenName: 'stETH',
-        stakingTokenAddress: erc20.address,
-        startTime: dayjs('2025-02-23T13:00:00.000Z'), // UTC time
-        roundDurationInDays: 3
-      }
-    ];
-
-    for (let i = 0; i < _.size(pools); i++) {
-      const pool = pools[i];
-      await expect(stakingPoolFactory.connect(Alice).deployPool(pool.stakingTokenAddress, pool.startTime.unix(), pool.roundDurationInDays))
-        .to.emit(stakingPoolFactory, 'StakingPoolDeployed').withArgs(anyValue, pool.stakingTokenAddress, pool.startTime.unix(), pool.roundDurationInDays);
-    }
-
-    expect(await stakingPoolFactory.getStakingTokens()).to.deep.equal([nativeTokenAddress, erc20.address]);
-
-    const ethStakingPoolInfo = await stakingPoolFactory.stakingPoolInfoByStakingToken(nativeTokenAddress);
-    expect(ethStakingPoolInfo.poolAddress).to.equal(await stakingPoolFactory.getStakingPoolAddress(nativeTokenAddress));
-    expect(ethStakingPoolInfo.startTime).to.equal(pools[0].startTime.unix());
-    expect(ethStakingPoolInfo.roundDurationInDays).to.equal(pools[0].roundDurationInDays);
-    expect(ethStakingPoolInfo.totalRewardsAmount).to.equal(0);
-
-    const erc20StakingPoolInfo = await stakingPoolFactory.stakingPoolInfoByStakingToken(erc20.address);
-    expect(erc20StakingPoolInfo.poolAddress).to.equal(await stakingPoolFactory.getStakingPoolAddress(erc20.address));
-    expect(erc20StakingPoolInfo.startTime).to.equal(pools[1].startTime.unix());
-    expect(erc20StakingPoolInfo.roundDurationInDays).to.equal(pools[1].roundDurationInDays);
-    expect(erc20StakingPoolInfo.totalRewardsAmount).to.equal(0);
+    expectBigNumberEquals(totalRewardPerDay, await lsdCoin.balanceOf(v2PlainStakingPool.address));
   });
 
   it('Ownership can be transferred', async () => {
-    const { lsdCoin, stakingPoolFactory, erc20, Alice, Bob, Caro, Dave } = await loadFixture(deployStakingPoolContractsFixture);
-
-    // Bob should fail to deploy a pool
-    const rewardStartTime = (await time.latest()) + ONE_DAY_IN_SECS;
-    const rewardDurationInDays = 7;
-    await expect(stakingPoolFactory.connect(Bob).deployPool(erc20.address, rewardStartTime, rewardDurationInDays))
-      .to.be.rejectedWith(/Ownable: caller is not the owner/);
+    const { lsdCoin, v2PlainStakingPool, Alice, Bob } = await loadFixture(deployStakingPoolContractsFixture);
 
     // Alice transfer ownership to Bob
-    await expect(stakingPoolFactory.connect(Alice).transferOwnership(Bob.address))
-      .to.emit(stakingPoolFactory, 'OwnershipTransferred').withArgs(Alice.address, Bob.address);
+    await expect(v2PlainStakingPool.connect(Alice).transferOwnership(Bob.address))
+      .to.emit(v2PlainStakingPool, 'OwnershipTransferred').withArgs(Alice.address, Bob.address);
 
     // Alice lose ownership
-    await expect(stakingPoolFactory.connect(Alice).deployPool(erc20.address, rewardStartTime, rewardDurationInDays))
-      .to.be.rejectedWith(/Ownable: caller is not the owner/);
-
-    // Bob should be able to call admin functions
-    await expect(stakingPoolFactory.connect(Bob).deployPool(erc20.address, rewardStartTime, rewardDurationInDays))
-      .to.emit(stakingPoolFactory, 'StakingPoolDeployed').withArgs(anyValue, erc20.address, rewardStartTime, rewardDurationInDays);
-    const erc20StakingPool = StakingPool__factory.connect(await stakingPoolFactory.getStakingPoolAddress(erc20.address), provider);
-
     const totalReward = expandTo18Decimals(1_000_000);
     await expect(lsdCoin.connect(Alice).mint(Alice.address, totalReward)).not.to.be.reverted;
     await expect(lsdCoin.connect(Alice).mint(Bob.address, totalReward)).not.to.be.reverted;
 
-    await time.increaseTo(rewardStartTime);
-    await expect(lsdCoin.connect(Alice).approve(stakingPoolFactory.address, totalReward)).not.to.be.reverted;
-    await expect(lsdCoin.connect(Bob).approve(stakingPoolFactory.address, totalReward)).not.to.be.reverted;
+    await expect(lsdCoin.connect(Alice).approve(v2PlainStakingPool.address, totalReward)).not.to.be.reverted;
+    await expect(lsdCoin.connect(Bob).approve(v2PlainStakingPool.address, totalReward)).not.to.be.reverted;
 
-    // Only Bob should be able to add rewards or deposit el rewards
-    await expect(stakingPoolFactory.connect(Alice).addRewards(erc20.address, totalReward))
+    // Only Bob should be able to add rewards
+    await expect(v2PlainStakingPool.connect(Alice).addRewards(totalReward))
       .to.be.rejectedWith(/Ownable: caller is not the owner/);
-    await expect(stakingPoolFactory.connect(Bob).addRewards(erc20.address, totalReward))
-      .to.emit(erc20StakingPool, 'RewardAdded').withArgs(totalReward);
+    await expect(v2PlainStakingPool.connect(Bob).addRewards(totalReward))
+      .to.emit(v2PlainStakingPool, 'RewardAdded').withArgs(totalReward);
   });
 
 });

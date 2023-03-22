@@ -53,7 +53,11 @@ export async function deployStakingPoolContractsFixture() {
   const PlainStakingPoolContract = await PlainStakingPool.deploy(lsdCoin.address, erc20.address, 7);
   const v2PlainStakingPool = PlainStakingPool__factory.connect(PlainStakingPoolContract.address, provider);
 
-  return { lsdCoin, stakingPoolFactory, v2PlainStakingPool, weth, stETH, frxETH, sfrxETH, erc20, Alice, Bob, Caro, Dave };
+  const FraxStakingPool = await ethers.getContractFactory('FraxStakingPool');
+  const FraxStakingPoolContract = await FraxStakingPool.deploy(sfrxETH.address, lsdCoin.address, frxETH.address, 7);
+  const v2FraxStakingPool = FraxStakingPool__factory.connect(FraxStakingPoolContract.address, provider);
+
+  return { lsdCoin, stakingPoolFactory, v2PlainStakingPool, v2FraxStakingPool, weth, stETH, frxETH, sfrxETH, erc20, Alice, Bob, Caro, Dave };
 }
 
 export function expandTo18Decimals(n: number) {
