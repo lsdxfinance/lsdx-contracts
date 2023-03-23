@@ -1,13 +1,14 @@
 import { ethers } from "hardhat";
 
 // // Goerli
-// const lsdCoinAddress = '0x6a45C5515CD20905e6A971A3185D82E8988aA826';
-// const wethAddress = '0xb4fbf271143f4fbf7b91a5ded31805e42b2208d6';
+const lsdCoinAddress = '0x6a45C5515CD20905e6A971A3185D82E8988aA826';
+const wethAddress = '0xCCB14936C2E000ED8393A571D15A2672537838Ad';
+const aavePoolAddress = '0x7b5C526B7F8dfdff278b4a3e045083FBA4028790';
 
 // mainnet
-const lsdCoinAddress = '0xfAC77A24E52B463bA9857d6b758ba41aE20e31FF';
-const wethAddress = '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2';
-const aavePoolAddress = '0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2';
+// const lsdCoinAddress = '0xfAC77A24E52B463bA9857d6b758ba41aE20e31FF';
+// const wethAddress = '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2';
+// const aavePoolAddress = '0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2';
 
 async function deployAaveREthPool() {
   const rETH = '0xae78736cd615f374d3085123a210448e74fc6393';
@@ -19,7 +20,7 @@ async function deployAaveREthPool() {
 }
 
 async function deployAaveEthPool() {
-  const aEthWETH = '0x4d5f47fa6a74757f35c14fd3a6ef8e3c9bc514e8';
+  const aEthWETH = '0x7649e0d153752c556b8b23DB1f1D3d42993E83a5';
 
   const AaveEthStakingPool = await ethers.getContractFactory('AaveEthStakingPool');
   const contract = await AaveEthStakingPool.deploy(aavePoolAddress, aEthWETH, lsdCoinAddress, wethAddress, 7);
@@ -37,9 +38,9 @@ async function deployFrxEthPool() {
 
 
 async function main() {
-  await deployAaveREthPool();
+  // await deployAaveREthPool();
   await deployAaveEthPool();
-  await deployFrxEthPool();
+  // await deployFrxEthPool();
 }
 
 // We recommend this pattern to be able to use async/await everywhere

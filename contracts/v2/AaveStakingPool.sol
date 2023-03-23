@@ -29,6 +29,7 @@ contract AaveStakingPool is StakingPoolV2 {
   ) StakingPoolV2(_rewardsToken, _stakingToken, _durationInDays) {
     aavePool = IPool(_aavePool);
     aToken = IAToken(_aToken);
+    aToken.approve(_aavePool, type(uint256).max);
   }
 
   function _transferStakingToken(uint256 amount) override internal virtual {

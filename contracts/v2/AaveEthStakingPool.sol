@@ -26,6 +26,7 @@ contract AaveEthStakingPool is AaveStakingPool {
     uint256 _durationInDays
   ) AaveStakingPool(_aavePool, _aToken, _rewardsToken, _weth, _durationInDays) {
     weth = IWETH(_weth);
+    weth.approve(_aavePool, type(uint256).max);
   }
 
   function _transferStakingToken(uint256 amount) override internal virtual {

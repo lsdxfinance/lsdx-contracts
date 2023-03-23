@@ -27,6 +27,7 @@ contract FraxStakingPool is StakingPoolV2 {
     uint256 _durationInDays
   ) StakingPoolV2(_rewardsToken, _frxETH, _durationInDays) {
     sfrxETH = IsfrxETH(_sfrxETH);
+    sfrxETH.approve(_sfrxETH, type(uint256).max);
   }
 
   function _transferStakingToken(uint256 amount) override internal virtual {
