@@ -2,7 +2,7 @@ import _ from 'lodash';
 import { expect } from 'chai';
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 import { loadFixture } from '@nomicfoundation/hardhat-network-helpers';
-import { deployStakingPoolContractsFixture, expandTo18Decimals } from './utils';
+import { deployStakingPoolContractsFixture, expandTo18Decimals } from '../utils';
 import { anyValue } from '@nomicfoundation/hardhat-chai-matchers/withArgs';
 
 describe('sfrxETH', () => {

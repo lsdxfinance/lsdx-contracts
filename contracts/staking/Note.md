@@ -1,24 +1,4 @@
 
-# LsdCoin
-
-LsdCoin 是一个标准的 ERC20 合约，它具有以下功能：
-
-### 权限控制
-
-- Deployer 帐号默认具有 mint、pause、upgrade 等权限
-
-- 可以通过 grantRole() 授予其他帐户相应的权限
-
-- 也可以通过 revokeRole() 收回授予的权限
-
-### Pausable
-
-如果遇到紧急情况，可以调用 pause() / unpause() 来暂停和恢复合约。暂停期间，mint、burn、transfer 等功能被禁止。
-
-### Upgradable
-
-合约代码可以升级，升级后地址不变，且之前的帐户余额等状态信息保留。
-
 # Staking Pools
 
 ### 核心合约

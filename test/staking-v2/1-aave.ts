@@ -2,9 +2,9 @@ import _ from 'lodash';
 import { expect } from 'chai';
 import { ethers, upgrades } from 'hardhat';
 import { loadFixture } from '@nomicfoundation/hardhat-network-helpers';
-import { deployStakingPoolContractsFixture, expandTo18Decimals } from './utils';
-import { Pool__factory } from '../typechain/factories/contracts/test/AToken.sol/Pool__factory';
-import { AToken__factory } from '../typechain/factories/contracts/test/AToken.sol/AToken__factory';
+import { deployStakingPoolContractsFixture, expandTo18Decimals } from '../utils';
+import { Pool__factory } from '../../typechain/factories/contracts/test/AToken.sol/Pool__factory';
+import { AToken__factory } from '../../typechain/factories/contracts/test/AToken.sol/AToken__factory';
 
 const { provider } = ethers;
 

@@ -6,8 +6,8 @@ pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
-import "./lib/CurrencyTransferLib.sol";
-import "./interfaces/IWETH.sol";
+import "../lib/CurrencyTransferLib.sol";
+import "../interfaces/IWETH.sol";
 import "./StakingPool.sol";
 
 contract EthStakingPool is StakingPool {

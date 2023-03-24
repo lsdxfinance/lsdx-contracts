@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.9;
 
-import "../LsdCoin.sol";
+import "../coin/LsdCoin.sol";
 
 contract TestLsdCoinV2 is LsdCoin {
 

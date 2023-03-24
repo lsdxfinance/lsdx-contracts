@@ -2,7 +2,7 @@ import _ from 'lodash';
 import { ethers } from 'hardhat';
 import { expect } from 'chai';
 import { loadFixture } from '@nomicfoundation/hardhat-network-helpers';
-import { deployStakingPoolContractsFixture } from './utils';
+import { deployStakingPoolContractsFixture } from '../utils';
 
 describe('stETH', () => {
 
