@@ -17,6 +17,7 @@ contract LsdxTreasury is Ownable, ReentrancyGuard {
 
   IERC20 public stakingToken;
   EnumerableSet.AddressSet internal rewardTokensSet;
+  EnumerableSet.AddressSet internal rewardersSet;
 
   mapping(address => uint256) public periodFinish;
   mapping(address => uint256) public rewardRates;
@@ -35,13 +36,14 @@ contract LsdxTreasury is Ownable, ReentrancyGuard {
     address _stakingToken,
     address[] memory _rewardTokens
   ) Ownable() {
+    require(_stakingToken != address(0), "Zero address detected");
     require(_rewardTokens.length > 0, "Empty reward token list");
 
     stakingToken = IERC20(_stakingToken);
     for (uint256 i = 0; i < _rewardTokens.length; i++) {
-      rewardTokensSet.add(_rewardTokens[i]);
-      emit RewardTokenAdded(_rewardTokens[i]);
+      addRewardToken(_rewardTokens[i]);
     }
+    addRewarder(_msgSender());
   }
 
   /* ========== VIEWS ========== */
@@ -89,6 +91,11 @@ contract LsdxTreasury is Ownable, ReentrancyGuard {
     return rewardTokensSet.values();
   }
 
+  // @dev No guarantees are made on the ordering
+  function rewarders() public view returns (address[] memory) {
+    return rewardersSet.values();
+  }
+
   /* ========== MUTATIVE FUNCTIONS ========== */
 
   function stake(uint256 amount) external nonReentrant updateAllRewards(msg.sender) {
@@ -126,20 +133,35 @@ contract LsdxTreasury is Ownable, ReentrancyGuard {
 
   /* ========== RESTRICTED FUNCTIONS ========== */
 
-  function addRewardToken(address rewardToken) external onlyOwner {
+  function addRewarder(address rewarder) public onlyOwner {
+    require(rewarder != address(0), "Zero address detected");
+    require(!rewardersSet.contains(rewarder), "Already added");
+
+    rewardersSet.add(rewarder);
+    emit RewarderAdded(rewarder);
+  }
+
+  function removeRewarder(address rewarder) public onlyOwner {
+    require(rewardersSet.contains(rewarder), "Not a rewarder");
+    require(rewardersSet.remove(rewarder), "Failed to remove rewarder");
+    emit RewarderRemoved(rewarder);
+  }
+
+  function addRewardToken(address rewardToken) public onlyOwner {
+    require(rewardToken != address(0), "Zero address detected");
     require(!rewardTokensSet.contains(rewardToken), "Already supported");
     rewardTokensSet.add(rewardToken);
     emit RewardTokenAdded(rewardToken);
   }
 
-  function addRewards(address rewardToken, uint256 rewardAmount, uint256 durationInDays) external onlyValidRewardToken(rewardToken) onlyOwner {
+  function addRewards(address rewardToken, uint256 rewardAmount, uint256 durationInDays) external onlyValidRewardToken(rewardToken) onlyRewarder {
     require(rewardAmount > 0, "Reward amount should be greater than 0");
     uint256 rewardDuration = durationInDays.mul(3600 * 24);
     IERC20(rewardToken).safeTransferFrom(msg.sender, address(this), rewardAmount);
     notifyRewardsAmount(rewardToken, rewardAmount, rewardDuration);
   }
 
-  function notifyRewardsAmount(address rewardToken, uint256 reward, uint256 rewardDuration) internal virtual onlyOwner updateRewards(address(0), rewardToken) {
+  function notifyRewardsAmount(address rewardToken, uint256 reward, uint256 rewardDuration) internal virtual onlyRewarder updateRewards(address(0), rewardToken) {
     if (block.timestamp >= periodFinish[rewardToken]) {
       rewardRates[rewardToken] = reward.div(rewardDuration);
     }
@@ -158,6 +180,11 @@ contract LsdxTreasury is Ownable, ReentrancyGuard {
   }
 
   /* ========== MODIFIERS ========== */
+
+  modifier onlyRewarder() {
+    require(rewardersSet.contains(_msgSender()), "");
+    _;
+  }
 
   modifier onlyValidRewardToken(address rewardToken) {
     require(isSupportedRewardToken(rewardToken), "Reward token not supported");
@@ -194,4 +221,6 @@ contract LsdxTreasury is Ownable, ReentrancyGuard {
   event RewardsPaid(address indexed user, address indexed rewardToken, uint256 reward);
   event RewardTokenAdded(address indexed rewardToken);
   event RewardsAdded(address indexed rewardToken, uint256 reward, uint256 rewardDuration);
+  event RewarderAdded(address indexed rewarder);
+  event RewarderRemoved(address indexed rewarder);
 }
