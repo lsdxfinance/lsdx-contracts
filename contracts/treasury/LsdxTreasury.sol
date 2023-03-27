@@ -8,6 +8,8 @@ import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
+import "./veLSD.sol";
+
 contract LsdxTreasury is Ownable, ReentrancyGuard {
   using SafeMath for uint256;
   using SafeERC20 for IERC20;
@@ -15,9 +17,10 @@ contract LsdxTreasury is Ownable, ReentrancyGuard {
 
   /* ========== STATE VARIABLES ========== */
 
-  IERC20 public stakingToken;
-  EnumerableSet.AddressSet internal rewardTokensSet;
-  EnumerableSet.AddressSet internal rewardersSet;
+  IERC20 public lsdToken;
+  veLSD public velsdToken;
+  EnumerableSet.AddressSet private _rewardTokensSet;
+  EnumerableSet.AddressSet private _rewardersSet;
 
   mapping(address => uint256) public periodFinish;
   mapping(address => uint256) public rewardRates;
@@ -27,19 +30,22 @@ contract LsdxTreasury is Ownable, ReentrancyGuard {
   mapping(address => mapping(address => uint256)) public userRewardsPerTokenPaid;
   mapping(address => mapping(address => uint256)) public rewards;
 
-  uint256 internal _totalSupply;
+  uint256 private _totalSupply;
   mapping(address => uint256) private _balances;
 
   /* ========== CONSTRUCTOR ========== */
 
   constructor(
-    address _stakingToken,
+    address _lsdToken,
+    address _velsdToken,
     address[] memory _rewardTokens
   ) Ownable() {
-    require(_stakingToken != address(0), "Zero address detected");
+    require(_lsdToken != address(0), "Zero address detected");
+    require(_velsdToken != address(0), "Zero address detected");
     require(_rewardTokens.length > 0, "Empty reward token list");
 
-    stakingToken = IERC20(_stakingToken);
+    lsdToken = IERC20(_lsdToken);
+    velsdToken = veLSD(_velsdToken);
     for (uint256 i = 0; i < _rewardTokens.length; i++) {
       addRewardToken(_rewardTokens[i]);
     }
@@ -83,17 +89,17 @@ contract LsdxTreasury is Ownable, ReentrancyGuard {
   }
 
   function isSupportedRewardToken(address rewardToken) public view returns (bool) {
-    return rewardTokensSet.contains(rewardToken);
+    return _rewardTokensSet.contains(rewardToken);
   }
 
   // @dev No guarantees are made on the ordering
   function rewardTokens() public view returns (address[] memory) {
-    return rewardTokensSet.values();
+    return _rewardTokensSet.values();
   }
 
   // @dev No guarantees are made on the ordering
   function rewarders() public view returns (address[] memory) {
-    return rewardersSet.values();
+    return _rewardersSet.values();
   }
 
   /* ========== MUTATIVE FUNCTIONS ========== */
@@ -102,7 +108,8 @@ contract LsdxTreasury is Ownable, ReentrancyGuard {
     require(amount > 0, "Cannot stake 0");
     _totalSupply = _totalSupply.add(amount);
     _balances[msg.sender] = _balances[msg.sender].add(amount);
-    stakingToken.safeTransferFrom(msg.sender, address(this), amount);
+    lsdToken.safeTransferFrom(msg.sender, address(this), amount);
+    velsdToken.mint(msg.sender, amount);
     emit Staked(msg.sender, amount);
   }
 
@@ -110,13 +117,14 @@ contract LsdxTreasury is Ownable, ReentrancyGuard {
     require(amount > 0, "Cannot withdraw 0");
     _totalSupply = _totalSupply.sub(amount);
     _balances[msg.sender] = _balances[msg.sender].sub(amount);
-    stakingToken.safeTransfer(msg.sender, amount);
+    lsdToken.safeTransfer(msg.sender, amount);
+    velsdToken.burnFrom(msg.sender, amount);
     emit Withdrawn(msg.sender, amount);
   }
 
   function getRewards() public nonReentrant updateAllRewards(msg.sender) {
-    for (uint256 i = 0; i < rewardTokensSet.length(); i++) {
-      address currentToken = rewardTokensSet.at(i);
+    for (uint256 i = 0; i < _rewardTokensSet.length(); i++) {
+      address currentToken = _rewardTokensSet.at(i);
       uint256 reward = rewards[msg.sender][currentToken];
       if (reward > 0) {
         rewards[msg.sender][currentToken] = 0;
@@ -135,22 +143,22 @@ contract LsdxTreasury is Ownable, ReentrancyGuard {
 
   function addRewarder(address rewarder) public onlyOwner {
     require(rewarder != address(0), "Zero address detected");
-    require(!rewardersSet.contains(rewarder), "Already added");
+    require(!_rewardersSet.contains(rewarder), "Already added");
 
-    rewardersSet.add(rewarder);
+    _rewardersSet.add(rewarder);
     emit RewarderAdded(rewarder);
   }
 
   function removeRewarder(address rewarder) public onlyOwner {
-    require(rewardersSet.contains(rewarder), "Not a rewarder");
-    require(rewardersSet.remove(rewarder), "Failed to remove rewarder");
+    require(_rewardersSet.contains(rewarder), "Not a rewarder");
+    require(_rewardersSet.remove(rewarder), "Failed to remove rewarder");
     emit RewarderRemoved(rewarder);
   }
 
   function addRewardToken(address rewardToken) public onlyOwner {
     require(rewardToken != address(0), "Zero address detected");
-    require(!rewardTokensSet.contains(rewardToken), "Already supported");
-    rewardTokensSet.add(rewardToken);
+    require(!_rewardTokensSet.contains(rewardToken), "Already supported");
+    _rewardTokensSet.add(rewardToken);
     emit RewardTokenAdded(rewardToken);
   }
 
@@ -182,7 +190,7 @@ contract LsdxTreasury is Ownable, ReentrancyGuard {
   /* ========== MODIFIERS ========== */
 
   modifier onlyRewarder() {
-    require(rewardersSet.contains(_msgSender()), "");
+    require(_rewardersSet.contains(_msgSender()), "");
     _;
   }
 
@@ -197,8 +205,8 @@ contract LsdxTreasury is Ownable, ReentrancyGuard {
   }
 
   modifier updateAllRewards(address account) {
-    for (uint256 i = 0; i < rewardTokensSet.length(); i++) {
-      address rewardToken = rewardTokensSet.at(i);
+    for (uint256 i = 0; i < _rewardTokensSet.length(); i++) {
+      address rewardToken = _rewardTokensSet.at(i);
       _updateRewards(account, rewardToken);
     }
     _;
