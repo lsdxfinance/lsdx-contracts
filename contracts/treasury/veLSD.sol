@@ -10,27 +10,27 @@ contract veLSD is ERC20 {
     minter = _msgSender();
   }
 
-  // @dev Disable token transfer
+  /// @dev Disable token transfer
   function transfer(address, uint256) public override pure returns (bool) {
     revert Unsupported();
   }
 
-  // @dev Disable approved token transfer
+  /// @dev Disable approved token transfer
   function transferFrom(address, address, uint256) public override pure returns (bool) {
     revert Unsupported();
   }
 
-  // @dev Only the minter (aka LsdxTreasury) could mint veLSD tokens on user deposit
+  /// @dev Only the minter (aka LsdxTreasury) could mint veLSD tokens on user deposit
   function mint(address to, uint256 amount) public onlyMinter {
     _mint(to, amount);
   }
 
-  // @dev Only the minter (aka LsdxTreasury) could burn veLSD tokens on user withdraw (after time lock)
+  /// @dev Only the minter (aka LsdxTreasury) could burn veLSD tokens on user withdraw (after time lock)
   function burnFrom(address account, uint256 amount) public onlyMinter {
     _burn(account, amount);
   }
 
-  // @dev Should transfer mintership to LsdxTreasury right after deployment
+  /// @dev Should transfer mintership to LsdxTreasury right after deployment
   function setMinter(address newMinter) public onlyMinter {
     require(newMinter != address(0), "New minter is the zero address");
     require(newMinter != minter, "Same minter");

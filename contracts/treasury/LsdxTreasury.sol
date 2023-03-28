@@ -2,8 +2,10 @@
 pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "@openzeppelin/contracts/utils/structs/DoubleEndedQueue.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
@@ -13,6 +15,8 @@ import "./veLSD.sol";
 contract LsdxTreasury is Ownable, ReentrancyGuard {
   using SafeMath for uint256;
   using SafeERC20 for IERC20;
+  using Counters for Counters.Counter;
+  using DoubleEndedQueue for DoubleEndedQueue.Bytes32Deque;
   using EnumerableSet for EnumerableSet.AddressSet;
 
   /* ========== STATE VARIABLES ========== */
@@ -21,6 +25,8 @@ contract LsdxTreasury is Ownable, ReentrancyGuard {
   veLSD public velsdToken;
   EnumerableSet.AddressSet private _rewardTokensSet;
   EnumerableSet.AddressSet private _rewardersSet;
+
+  uint256 public velsdTimelock = 365 days;
 
   mapping(address => uint256) public periodFinish;
   mapping(address => uint256) public rewardRates;
@@ -32,6 +38,16 @@ contract LsdxTreasury is Ownable, ReentrancyGuard {
 
   uint256 private _totalSupply;
   mapping(address => uint256) private _balances;
+  Counters.Counter private _nextLockId;
+  mapping(address => DoubleEndedQueue.Bytes32Deque) private _userVelsdLocked;
+  mapping(uint256 => VelsdLocked) private _allVelsdLocked;
+
+  struct VelsdLocked {
+    uint256 lockId;
+    uint256 amount;
+    uint256 startTime;
+    uint256 unlockTime;
+  }
 
   /* ========== CONSTRUCTOR ========== */
 
@@ -92,50 +108,94 @@ contract LsdxTreasury is Ownable, ReentrancyGuard {
     return _rewardTokensSet.contains(rewardToken);
   }
 
-  // @dev No guarantees are made on the ordering
+  /// @dev No guarantees are made on the ordering
   function rewardTokens() public view returns (address[] memory) {
     return _rewardTokensSet.values();
   }
 
-  // @dev No guarantees are made on the ordering
+  /// @dev No guarantees are made on the ordering
   function rewarders() public view returns (address[] memory) {
     return _rewardersSet.values();
   }
 
+  function velsdLockedCount(address user) public view returns (uint256) {
+    return _userVelsdLocked[user].length();
+  }
+
+  function velsdLockedInfoByIndex(address user, uint256 index) public view returns (VelsdLocked memory) {
+    require(index < velsdLockedCount(user), "Index out of bounds");
+
+    DoubleEndedQueue.Bytes32Deque storage userLocked = _userVelsdLocked[user];
+    uint256 lockId = uint256(userLocked.at(index));
+    return _allVelsdLocked[lockId];
+  }
+
   /* ========== MUTATIVE FUNCTIONS ========== */
 
-  function stake(uint256 amount) external nonReentrant updateAllRewards(msg.sender) {
-    require(amount > 0, "Cannot stake 0");
+  function depositAndLock(uint256 amount) external nonReentrant updateAllRewards(_msgSender()) {
+    require(amount > 0, "Cannot deposit 0");
+
     _totalSupply = _totalSupply.add(amount);
-    _balances[msg.sender] = _balances[msg.sender].add(amount);
-    lsdToken.safeTransferFrom(msg.sender, address(this), amount);
-    velsdToken.mint(msg.sender, amount);
-    emit Staked(msg.sender, amount);
+    _balances[_msgSender()] = _balances[_msgSender()].add(amount);
+
+    lsdToken.safeTransferFrom(_msgSender(), address(this), amount);
+    velsdToken.mint(_msgSender(), amount);
+
+    _nextLockId.increment();
+    uint256 lockId = _nextLockId.current();
+    VelsdLocked memory lock = VelsdLocked({
+      lockId: lockId,
+      amount: amount,
+      startTime: block.timestamp,
+      unlockTime: block.timestamp.add(velsdTimelock)
+    });
+    _allVelsdLocked[lockId] = lock;
+    DoubleEndedQueue.Bytes32Deque storage userLocked = _userVelsdLocked[_msgSender()];
+    userLocked.pushBack(bytes32(lockId));
+
+    emit Deposited(_msgSender(), amount);
   }
 
-  function withdraw(uint256 amount) public nonReentrant updateAllRewards(msg.sender) {
-    require(amount > 0, "Cannot withdraw 0");
-    _totalSupply = _totalSupply.sub(amount);
-    _balances[msg.sender] = _balances[msg.sender].sub(amount);
-    lsdToken.safeTransfer(msg.sender, amount);
-    velsdToken.burnFrom(msg.sender, amount);
-    emit Withdrawn(msg.sender, amount);
+  function withdrawUnlocked() public nonReentrant updateAllRewards(_msgSender()) {
+    uint256 amount = 0;
+
+    DoubleEndedQueue.Bytes32Deque storage userLocked = _userVelsdLocked[_msgSender()];
+    while (!userLocked.empty()) {
+      uint256 lockId = uint256(userLocked.front());
+      VelsdLocked memory lock = _allVelsdLocked[lockId];
+      if (lock.unlockTime <= block.timestamp) {
+        amount = amount.add(lock.amount);
+        userLocked.popFront();
+        delete _allVelsdLocked[lockId];
+      }
+      else {
+        break;
+      }
+    }
+
+    if (amount > 0) {
+      _totalSupply = _totalSupply.sub(amount);
+      _balances[_msgSender()] = _balances[_msgSender()].sub(amount);
+      lsdToken.safeTransfer(_msgSender(), amount);
+      velsdToken.burnFrom(_msgSender(), amount);
+      emit Withdrawn(_msgSender(), amount);
+    }
   }
 
-  function getRewards() public nonReentrant updateAllRewards(msg.sender) {
+  function getRewards() public nonReentrant updateAllRewards(_msgSender()) {
     for (uint256 i = 0; i < _rewardTokensSet.length(); i++) {
       address currentToken = _rewardTokensSet.at(i);
-      uint256 reward = rewards[msg.sender][currentToken];
+      uint256 reward = rewards[_msgSender()][currentToken];
       if (reward > 0) {
-        rewards[msg.sender][currentToken] = 0;
-        IERC20(currentToken).safeTransfer(msg.sender, reward);
-        emit RewardsPaid(msg.sender, currentToken, reward);
+        rewards[_msgSender()][currentToken] = 0;
+        IERC20(currentToken).safeTransfer(_msgSender(), reward);
+        emit RewardsPaid(_msgSender(), currentToken, reward);
       }
     }
   }
 
-  function exit() external {
-    withdraw(_balances[msg.sender]);
+  function exitUnlocked() external {
+    withdrawUnlocked();
     getRewards();
   }
 
@@ -165,7 +225,7 @@ contract LsdxTreasury is Ownable, ReentrancyGuard {
   function addRewards(address rewardToken, uint256 rewardAmount, uint256 durationInDays) external onlyValidRewardToken(rewardToken) onlyRewarder {
     require(rewardAmount > 0, "Reward amount should be greater than 0");
     uint256 rewardDuration = durationInDays.mul(3600 * 24);
-    IERC20(rewardToken).safeTransferFrom(msg.sender, address(this), rewardAmount);
+    IERC20(rewardToken).safeTransferFrom(_msgSender(), address(this), rewardAmount);
     notifyRewardsAmount(rewardToken, rewardAmount, rewardDuration);
   }
 
@@ -184,7 +244,7 @@ contract LsdxTreasury is Ownable, ReentrancyGuard {
 
     lastUpdateTime[rewardToken] = block.timestamp;
     periodFinish[rewardToken] = block.timestamp.add(rewardDuration);
-    emit RewardsAdded(rewardToken, reward, rewardDuration);
+    emit RewardsAdded(rewardToken, _msgSender(), reward, rewardDuration);
   }
 
   /* ========== MODIFIERS ========== */
@@ -224,11 +284,11 @@ contract LsdxTreasury is Ownable, ReentrancyGuard {
 
   /* ========== EVENTS ========== */
 
-  event Staked(address indexed user, uint256 amount);
+  event Deposited(address indexed user, uint256 amount);
   event Withdrawn(address indexed user, uint256 amount);
   event RewardsPaid(address indexed user, address indexed rewardToken, uint256 reward);
   event RewardTokenAdded(address indexed rewardToken);
-  event RewardsAdded(address indexed rewardToken, uint256 reward, uint256 rewardDuration);
+  event RewardsAdded(address indexed rewardToken, address indexed rewarder, uint256 reward, uint256 rewardDuration);
   event RewarderAdded(address indexed rewarder);
   event RewarderRemoved(address indexed rewarder);
 }
