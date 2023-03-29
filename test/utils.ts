@@ -9,6 +9,7 @@ import { SfrxETH__factory } from '../typechain/factories/contracts/test/sfrxETH.
 import { LsdCoin__factory } from '../typechain/factories/contracts/coin/LsdCoin__factory';
 import { PlainStakingPool__factory } from '../typechain/factories/contracts/staking-v2/PlainStakingPool__factory';
 import { FraxStakingPool__factory } from '../typechain/factories/contracts/staking-v2/FraxStakingPool__factory';
+import { VeLSD__factory } from '../typechain/factories/contracts/treasury/VeLSD__factory';
 
 const { provider, BigNumber } = ethers;
 
@@ -55,7 +56,11 @@ export async function deployStakingPoolContractsFixture() {
   const FraxStakingPoolContract = await FraxStakingPool.deploy(sfrxETH.address, lsdCoin.address, frxETH.address, 7);
   const v2FraxStakingPool = FraxStakingPool__factory.connect(FraxStakingPoolContract.address, provider);
 
-  return { lsdCoin, stakingPoolFactory, v2PlainStakingPool, v2FraxStakingPool, weth, stETH, frxETH, sfrxETH, erc20, Alice, Bob, Caro, Dave };
+  const VeLSD = await ethers.getContractFactory('veLSD');
+  const veLSDContract = await VeLSD.deploy();
+  const veLSD = VeLSD__factory.connect(veLSDContract.address, provider);
+
+  return { lsdCoin, stakingPoolFactory, v2PlainStakingPool, v2FraxStakingPool, weth, stETH, frxETH, sfrxETH, erc20, veLSD, Alice, Bob, Caro, Dave };
 }
 
 export function expandTo18Decimals(n: number) {
