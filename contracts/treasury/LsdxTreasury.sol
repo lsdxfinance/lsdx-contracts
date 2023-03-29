@@ -132,7 +132,7 @@ contract LsdxTreasury is Ownable, ReentrancyGuard {
 
   /* ========== MUTATIVE FUNCTIONS ========== */
 
-  function depositAndLock(uint256 amount) external nonReentrant updateAllRewards(_msgSender()) {
+  function depositAndLockToken(uint256 amount) external nonReentrant updateAllRewards(_msgSender()) {
     require(amount > 0, "Cannot deposit 0");
 
     _totalSupply = _totalSupply.add(amount);
@@ -156,22 +156,16 @@ contract LsdxTreasury is Ownable, ReentrancyGuard {
     emit Deposited(_msgSender(), amount);
   }
 
-  function withdrawUnlocked() public nonReentrant updateAllRewards(_msgSender()) {
-    uint256 amount = 0;
-
+  function withdrawFirstSumOfUnlockedToken() public nonReentrant updateAllRewards(_msgSender()) {
     DoubleEndedQueue.Bytes32Deque storage userLocked = _userVelsdLocked[_msgSender()];
-    while (!userLocked.empty()) {
-      uint256 lockId = uint256(userLocked.front());
-      VelsdLocked memory lock = _allVelsdLocked[lockId];
-      if (lock.unlockTime <= block.timestamp) {
-        amount = amount.add(lock.amount);
-        userLocked.popFront();
-        delete _allVelsdLocked[lockId];
-      }
-      else {
-        break;
-      }
-    }
+    require(!userLocked.empty(), "No deposit to withdraw");
+
+    uint256 lockId = uint256(userLocked.front());
+    VelsdLocked memory lock = _allVelsdLocked[lockId];
+    require(lock.unlockTime <= block.timestamp, "No unlocked deposit to withdraw");
+    uint256 amount = lock.amount;
+    userLocked.popFront();
+    delete _allVelsdLocked[lockId];
 
     if (amount > 0) {
       _totalSupply = _totalSupply.sub(amount);
@@ -194,8 +188,8 @@ contract LsdxTreasury is Ownable, ReentrancyGuard {
     }
   }
 
-  function exitUnlocked() external {
-    withdrawUnlocked();
+  function exitFirstSumOfUnlockedToken() external {
+    withdrawFirstSumOfUnlockedToken();
     getRewards();
   }
 
@@ -224,7 +218,7 @@ contract LsdxTreasury is Ownable, ReentrancyGuard {
 
   function addRewards(address rewardToken, uint256 rewardAmount, uint256 durationInDays) external onlyValidRewardToken(rewardToken) onlyRewarder {
     require(rewardAmount > 0, "Reward amount should be greater than 0");
-    uint256 rewardDuration = durationInDays.mul(3600 * 24);
+    uint256 rewardDuration = durationInDays.mul(1 days);
     IERC20(rewardToken).safeTransferFrom(_msgSender(), address(this), rewardAmount);
     notifyRewardsAmount(rewardToken, rewardAmount, rewardDuration);
   }
