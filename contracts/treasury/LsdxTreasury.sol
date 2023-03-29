@@ -26,7 +26,7 @@ contract LsdxTreasury is Ownable, ReentrancyGuard {
   EnumerableSet.AddressSet private _rewardTokensSet;
   EnumerableSet.AddressSet private _rewardersSet;
 
-  uint256 public velsdTimelock = 365 days;
+  uint256 public velsdTimelock;
 
   mapping(address => uint256) public periodFinish;
   mapping(address => uint256) public rewardRates;
@@ -53,19 +53,22 @@ contract LsdxTreasury is Ownable, ReentrancyGuard {
 
   constructor(
     address _lsdToken,
+    address[] memory _rewardTokens,
     address _velsdToken,
-    address[] memory _rewardTokens
+    uint256 _velsdTimelockInDays
   ) Ownable() {
     require(_lsdToken != address(0), "Zero address detected");
-    require(_velsdToken != address(0), "Zero address detected");
     require(_rewardTokens.length > 0, "Empty reward token list");
+    require(_velsdToken != address(0), "Zero address detected");
+    require(_velsdTimelockInDays > 0, 'Timelock too short');
 
     lsdToken = IERC20(_lsdToken);
-    velsdToken = veLSD(_velsdToken);
     for (uint256 i = 0; i < _rewardTokens.length; i++) {
       addRewardToken(_rewardTokens[i]);
     }
     addRewarder(_msgSender());
+    velsdToken = veLSD(_velsdToken);
+    velsdTimelock = _velsdTimelockInDays.mul(1 days);
   }
 
   /* ========== VIEWS ========== */
@@ -244,7 +247,7 @@ contract LsdxTreasury is Ownable, ReentrancyGuard {
   /* ========== MODIFIERS ========== */
 
   modifier onlyRewarder() {
-    require(_rewardersSet.contains(_msgSender()), "");
+    require(_rewardersSet.contains(_msgSender()), "Not rewarder");
     _;
   }
 
