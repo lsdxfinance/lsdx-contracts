@@ -2,13 +2,13 @@
 pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/structs/DoubleEndedQueue.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 import "./veLSD.sol";
 
@@ -214,13 +214,15 @@ contract LsdxTreasury is Ownable, ReentrancyGuard {
 
   function addRewardToken(address rewardToken) public onlyOwner {
     require(rewardToken != address(0), "Zero address detected");
-    require(!_rewardTokensSet.contains(rewardToken), "Already supported");
+    require(!_rewardTokensSet.contains(rewardToken), "Already added");
     _rewardTokensSet.add(rewardToken);
     emit RewardTokenAdded(rewardToken);
   }
 
   function addRewards(address rewardToken, uint256 rewardAmount, uint256 durationInDays) external onlyValidRewardToken(rewardToken) onlyRewarder {
     require(rewardAmount > 0, "Reward amount should be greater than 0");
+    require(durationInDays > 0, 'Reward duration too short');
+
     uint256 rewardDuration = durationInDays.mul(1 days);
     IERC20(rewardToken).safeTransferFrom(_msgSender(), address(this), rewardAmount);
     notifyRewardsAmount(rewardToken, rewardAmount, rewardDuration);
@@ -247,7 +249,7 @@ contract LsdxTreasury is Ownable, ReentrancyGuard {
   /* ========== MODIFIERS ========== */
 
   modifier onlyRewarder() {
-    require(_rewardersSet.contains(_msgSender()), "Not rewarder");
+    require(_rewardersSet.contains(_msgSender()), "Not a rewarder");
     _;
   }
 

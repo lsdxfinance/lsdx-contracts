@@ -1,7 +1,7 @@
 import * as _ from 'lodash';
 import dotenv from "dotenv";
 import { ethers } from "hardhat";
-import { StakingPoolFactory__factory } from '../typechain/factories/contracts/StakingPoolFactory__factory';
+import { StakingPoolFactory__factory } from '../typechain/factories/contracts/staking/StakingPoolFactory__factory';
 
 const dayjs = require('dayjs');
 
