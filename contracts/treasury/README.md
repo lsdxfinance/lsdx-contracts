@@ -17,8 +17,8 @@ $ hh run scripts/deployLsdxTreasury.ts --network <mainnet/goerli>
 # Verifi veLSD
 $ hh verify --network <mainnet/goerli> <address>
 
-# Verifi LsdxTreasury
-$ hh verify --network <mainnet/goerli> <address> <lsdcoin-address> ...
+# Verifi LsdxTreasury. Edit ./scripts/lsdxTreasuryArguments.js, and:
+$ hh verify --network goerli --constructor-args ./scripts/lsdxTreasuryArguments.js <address>
 ```
 
 ## Address
