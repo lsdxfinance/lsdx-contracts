@@ -79,9 +79,9 @@ describe('LSDx Treansury', () => {
     await expect(lsdxTreasury.earned(Bob.address, weth.address)).to.be.rejectedWith(/Reward token not supported/);
     await expect(lsdxTreasury.connect(Bob).withdrawFirstSumOfUnlockedToken()).to.be.rejectedWith(/No unlocked deposit to withdraw/);
 
-    // Day 2. Admin deposit 3_000_1000 $LSD as rewards, last for 3 days (1_000_000 per day)
+    // Day 2. Admin deposit 3_000_000 $LSD as rewards, last for 3 days (1_000_000 per day)
     await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 2);
-    const lsdRewardsFor3Days = expandTo18Decimals(3_000_1000);
+    const lsdRewardsFor3Days = expandTo18Decimals(3_000_000);
     await expect(lsdCoin.connect(Alice).mint(Alice.address, lsdRewardsFor3Days)).not.to.be.reverted;
     await expect(lsdCoin.connect(Alice).approve(lsdxTreasury.address, lsdRewardsFor3Days)).not.to.be.reverted;
     await expect(lsdxTreasury.connect(Alice).addRewards(lsdCoin.address, lsdRewardsFor3Days, 3))
@@ -92,7 +92,7 @@ describe('LSDx Treansury', () => {
     await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 3);
     expectBigNumberEquals(lsdRewardsFor3Days.div(3), await lsdxTreasury.earned(Bob.address, lsdCoin.address));
     // Bob claim 1_000_000 $LSD rewards
-    const lsdBalanceBob = await lsdCoin.balanceOf(Bob.address)
+    let lsdBalanceBob = await lsdCoin.balanceOf(Bob.address)
     await expect(lsdxTreasury.connect(Bob).getRewards())
       .to.emit(lsdxTreasury, 'RewardsPaid').withArgs(Bob.address, lsdCoin.address, anyValue);
     expect(await lsdxTreasury.earned(Bob.address, lsdCoin.address)).to.equal(0);
@@ -112,7 +112,7 @@ describe('LSDx Treansury', () => {
     await expect(lsdCoin.connect(Caro).approve(lsdxTreasury.address, caroStakeAmount)).not.to.be.reverted;
     trans = await lsdxTreasury.connect(Caro).depositAndLockToken(caroStakeAmount);
     await trans.wait();
-    const caroDepositTime = (await provider.getBlock(trans.blockNumber!)).timestamp;
+    // const caroDepositTime = (await provider.getBlock(trans.blockNumber!)).timestamp;
     expect(await lsdxTreasury.balanceOf(Caro.address)).to.equal(expandTo18Decimals(1_000));
     expect(await lsdCoin.balanceOf(Caro.address)).to.equal(expandTo18Decimals(10_000 - 1_000));
     expect(await veLSD.balanceOf(Caro.address)).to.equal(expandTo18Decimals(1_000));
@@ -145,15 +145,63 @@ describe('LSDx Treansury', () => {
     expectBigNumberEquals(ethxRewardsFor7Days.div(7).mul(3).div(4), await lsdxTreasury.earned(Caro.address, ethx.address));
     expectBigNumberEquals(wethRewardsFor7Days.div(7).mul(3).div(4), await lsdxTreasury.earned(Bob.address, weth.address));
     expectBigNumberEquals(wethRewardsFor7Days.div(7).mul(1).div(4), await lsdxTreasury.earned(Caro.address, weth.address));
-    
+
     // Day 8. Now, 
     // $LSD rewarding: 6/3 days passed, finished days ago
     // $ethx rewarding: 4/7 days passed, 3/7 rewards remaining
-    // $weth rewarding: 2/7 days passed, 5/7 rewards remainging
-    await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 7);
-    // Now, for $LSD rewarding, we start a new 7 days rewarding; for $weth, we start a new 5 days rewarding
-    
+    // $weth rewarding: 2/7 days passed, 5/7 rewards remaining (50 weth)
+    await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 8);
+    await expect(lsdxTreasury.connect(Bob).getRewards()).not.to.be.reverted;
+    await expect(lsdxTreasury.connect(Caro).getRewards()).not.to.be.reverted;
+    // For $LSD rewarding, we start a new 7 days rewarding; Now, daily $LSD rewards is 1_000_000
+    const lsdRewardsFor7Days = expandTo18Decimals(7_000_000);
+    await expect(lsdCoin.connect(Alice).mint(Caro.address, lsdRewardsFor7Days)).not.to.be.reverted;
+    await expect(lsdCoin.connect(Caro).approve(lsdxTreasury.address, lsdRewardsFor7Days)).not.to.be.reverted;
+    await expect(lsdxTreasury.connect(Caro).addRewards(lsdCoin.address, lsdRewardsFor7Days, 7))
+      .to.emit(lsdxTreasury, 'RewardsAdded').withArgs(lsdCoin.address, Caro.address, lsdRewardsFor7Days, ONE_DAY_IN_SECS * 7);
+    expect(await lsdxTreasury.periodFinish(lsdCoin.address)).to.equal(await time.latest() + ONE_DAY_IN_SECS * 7);
+    // For $weth, we start a new 10 days rewarding; Now daily $weth rewards is (50 + 50) / 5 = 20
+    const wethRewardsFor10Days = ethers.utils.parseEther('50');
+    const totalWethRewardsFor10Days = ethers.utils.parseEther('100');
+    await expect(weth.connect(Alice).deposit({value: wethRewardsFor10Days})).not.to.be.reverted;
+    await expect(weth.connect(Alice).approve(lsdxTreasury.address, wethRewardsFor10Days)).not.to.be.reverted;
+    await expect(lsdxTreasury.connect(Alice).addRewards(weth.address, wethRewardsFor10Days, 10))
+      .to.emit(lsdxTreasury, 'RewardsAdded').withArgs(weth.address, Alice.address, wethRewardsFor10Days, ONE_DAY_IN_SECS * 10);
+    expect(await lsdxTreasury.periodFinish(weth.address)).to.equal(await time.latest() + ONE_DAY_IN_SECS * 10);
 
+    // Day 9
+    await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 9);
+    expectBigNumberEquals(lsdRewardsFor7Days.div(7).mul(3).div(4), await lsdxTreasury.earned(Bob.address, lsdCoin.address));
+    expectBigNumberEquals(lsdRewardsFor7Days.div(7).mul(1).div(4), await lsdxTreasury.earned(Caro.address, lsdCoin.address));
+    expectBigNumberEquals(ethxRewardsFor7Days.div(7).mul(3).div(4), await lsdxTreasury.earned(Bob.address, ethx.address));
+    expectBigNumberEquals(ethxRewardsFor7Days.div(7).mul(1).div(4), await lsdxTreasury.earned(Caro.address, ethx.address));
+    expectBigNumberEquals(totalWethRewardsFor10Days.div(10).mul(3).div(4), await lsdxTreasury.earned(Bob.address, weth.address));
+    expectBigNumberEquals(totalWethRewardsFor10Days.div(10).mul(1).div(4), await lsdxTreasury.earned(Caro.address, weth.address));
+
+    // Day 30
+    await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 30 + 60 * 60);
+    let balanceBob = await lsdxTreasury.balanceOf(Bob.address);
+    lsdBalanceBob = await lsdCoin.balanceOf(Bob.address);
+    let velsdBalanceBob = await veLSD.balanceOf(Bob.address);
+    await expect(lsdxTreasury.connect(Bob).withdrawFirstSumOfUnlockedToken())
+      .to.emit(lsdCoin, 'Transfer').withArgs(lsdxTreasury.address, Bob.address, expandTo18Decimals(1_000))
+      .to.emit(veLSD, 'Transfer').withArgs(Bob.address, ethers.constants.AddressZero, expandTo18Decimals(1_000))
+      .to.emit(lsdxTreasury, 'Withdrawn').withArgs(Bob.address, expandTo18Decimals(1_000));
+    expect(await lsdxTreasury.balanceOf(Bob.address)).to.equal(balanceBob.sub(expandTo18Decimals(1_000)));
+    expect(await lsdCoin.balanceOf(Bob.address)).to.equal(lsdBalanceBob.add(expandTo18Decimals(1_000)));
+    expect(await veLSD.balanceOf(Bob.address)).to.equal(velsdBalanceBob.sub(expandTo18Decimals(1_000)));
+    expect(await lsdxTreasury.velsdLockedCount(Bob.address)).to.equal(1);
+
+    // Day 31
+    await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 31 + 60 * 60);
+    await expect(lsdxTreasury.connect(Bob).exitFirstSumOfUnlockedToken())
+      .to.emit(lsdCoin, 'Transfer').withArgs(lsdxTreasury.address, Bob.address, expandTo18Decimals(2_000))
+      .to.emit(veLSD, 'Transfer').withArgs(Bob.address, ethers.constants.AddressZero, expandTo18Decimals(2_000))
+      .to.emit(lsdxTreasury, 'Withdrawn').withArgs(Bob.address, expandTo18Decimals(2_000))
+      .to.emit(lsdxTreasury, 'RewardsPaid').withArgs(Bob.address, lsdCoin.address, anyValue)
+      .to.emit(lsdxTreasury, 'RewardsPaid').withArgs(Bob.address, ethx.address, anyValue)
+      .to.emit(lsdxTreasury, 'RewardsPaid').withArgs(Bob.address, weth.address, anyValue);
+      expect(await lsdxTreasury.velsdLockedCount(Bob.address)).to.equal(0);
   });
 
 });
