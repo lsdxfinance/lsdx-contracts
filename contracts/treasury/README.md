@@ -25,5 +25,5 @@ $ hh verify --network goerli --constructor-args ./scripts/lsdxTreasuryArguments.
 
 ### Goerli
 
-- veLSD: 0xe8340c7Bf483D3cB94E67C270CEA26edeFC8b2bC
-- LsdxTreasury: 0xd4833D9Ad90AD1561D580F3575314B8cF74dC583
+- veLSD: 0x7EC67D32B95Cd4E576cda4F4E9491bFbA38758F3
+- LsdxTreasury: 0xFf075c2E9a6762A508D4b6171bA915FFC6115132
