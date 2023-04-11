@@ -26,8 +26,6 @@ contract LsdxTreasury is Ownable, ReentrancyGuard {
   EnumerableSet.AddressSet private _rewardTokensSet;
   EnumerableSet.AddressSet private _rewardersSet;
 
-  uint256 public velsdTimelock;
-
   mapping(address => uint256) public periodFinish;
   mapping(address => uint256) public rewardRates;
   mapping(address => uint256) public rewardsPerTokenStored;
@@ -38,6 +36,7 @@ contract LsdxTreasury is Ownable, ReentrancyGuard {
 
   uint256 private _totalSupply;
   mapping(address => uint256) private _balances;
+  uint256 private _adminFee;
   Counters.Counter private _nextLockId;
   mapping(address => DoubleEndedQueue.Bytes32Deque) private _userVelsdLocked;
   mapping(uint256 => VelsdLocked) private _allVelsdLocked;
@@ -45,8 +44,7 @@ contract LsdxTreasury is Ownable, ReentrancyGuard {
   struct VelsdLocked {
     uint256 lockId;
     uint256 amount;
-    uint256 startTime;
-    uint256 unlockTime;
+    uint256 depositTime;
   }
 
   /* ========== CONSTRUCTOR ========== */
@@ -54,13 +52,11 @@ contract LsdxTreasury is Ownable, ReentrancyGuard {
   constructor(
     address _lsdToken,
     address[] memory _rewardTokens,
-    address _velsdToken,
-    uint256 _velsdTimelockInDays
+    address _velsdToken
   ) Ownable() {
     require(_lsdToken != address(0), "Zero address detected");
     require(_rewardTokens.length > 0, "Empty reward token list");
     require(_velsdToken != address(0), "Zero address detected");
-    require(_velsdTimelockInDays > 0, 'Timelock too short');
 
     lsdToken = IERC20(_lsdToken);
     for (uint256 i = 0; i < _rewardTokens.length; i++) {
@@ -68,7 +64,6 @@ contract LsdxTreasury is Ownable, ReentrancyGuard {
     }
     addRewarder(_msgSender());
     velsdToken = veLSD(_velsdToken);
-    velsdTimelock = _velsdTimelockInDays.mul(1 days);
   }
 
   /* ========== VIEWS ========== */
@@ -149,8 +144,7 @@ contract LsdxTreasury is Ownable, ReentrancyGuard {
     VelsdLocked memory lock = VelsdLocked({
       lockId: lockId,
       amount: amount,
-      startTime: block.timestamp,
-      unlockTime: block.timestamp.add(velsdTimelock)
+      depositTime: block.timestamp
     });
     _allVelsdLocked[lockId] = lock;
     DoubleEndedQueue.Bytes32Deque storage userLocked = _userVelsdLocked[_msgSender()];
@@ -159,13 +153,12 @@ contract LsdxTreasury is Ownable, ReentrancyGuard {
     emit Deposited(_msgSender(), amount);
   }
 
-  function withdrawFirstSumOfUnlockedToken() public nonReentrant updateAllRewards(_msgSender()) {
+  function withdrawFirstSumOfLockedToken() public nonReentrant updateAllRewards(_msgSender()) {
     DoubleEndedQueue.Bytes32Deque storage userLocked = _userVelsdLocked[_msgSender()];
     require(!userLocked.empty(), "No deposit to withdraw");
 
     uint256 lockId = uint256(userLocked.front());
     VelsdLocked memory lock = _allVelsdLocked[lockId];
-    require(lock.unlockTime <= block.timestamp, "No unlocked deposit to withdraw");
     uint256 amount = lock.amount;
     userLocked.popFront();
     delete _allVelsdLocked[lockId];
@@ -173,9 +166,40 @@ contract LsdxTreasury is Ownable, ReentrancyGuard {
     if (amount > 0) {
       _totalSupply = _totalSupply.sub(amount);
       _balances[_msgSender()] = _balances[_msgSender()].sub(amount);
-      lsdToken.safeTransfer(_msgSender(), amount);
+
+      uint256 fee = calcAdminFee(lock);
+      uint256 netAmount = amount.sub(fee);     
+       
+      lsdToken.safeTransfer(_msgSender(), netAmount);
       velsdToken.burnFrom(_msgSender(), amount);
-      emit Withdrawn(_msgSender(), amount);
+      emit Withdrawn(_msgSender(), amount, fee);
+
+      if (fee > 0) {
+        _adminFee = _adminFee.add(fee);
+        emit AdminFeeAccrued(_msgSender(), amount, fee);
+      }
+    }
+  }
+
+  function calcAdminFee(VelsdLocked memory lock) public view returns (uint256) {
+    require(lock.depositTime < block.timestamp, "Invalid deposit time");
+    require(lock.amount > 0, "Invalid deposit amount");
+
+    uint256 period = block.timestamp.sub(lock.depositTime);
+    if (period < 30 days) {
+      return lock.amount.mul(20).div(100);
+    }
+    else if (period < 90 days) {
+      return lock.amount.mul(10).div(100);
+    }
+    else if (period < 180 days) {
+      return lock.amount.mul(5).div(100);
+    }
+    else if (period < 365 days) {
+      return lock.amount.mul(25).div(1000);
+    }
+    else {
+      return 0;
     }
   }
 
@@ -191,14 +215,14 @@ contract LsdxTreasury is Ownable, ReentrancyGuard {
     }
   }
 
-  function exitFirstSumOfUnlockedToken() external {
-    withdrawFirstSumOfUnlockedToken();
+  function exitFirstSumOfLockedToken() external {
+    withdrawFirstSumOfLockedToken();
     getRewards();
   }
 
   /* ========== RESTRICTED FUNCTIONS ========== */
 
-  function addRewarder(address rewarder) public onlyOwner {
+  function addRewarder(address rewarder) public nonReentrant onlyOwner {
     require(rewarder != address(0), "Zero address detected");
     require(!_rewardersSet.contains(rewarder), "Already added");
 
@@ -206,29 +230,29 @@ contract LsdxTreasury is Ownable, ReentrancyGuard {
     emit RewarderAdded(rewarder);
   }
 
-  function removeRewarder(address rewarder) public onlyOwner {
+  function removeRewarder(address rewarder) public nonReentrant onlyOwner {
     require(_rewardersSet.contains(rewarder), "Not a rewarder");
     require(_rewardersSet.remove(rewarder), "Failed to remove rewarder");
     emit RewarderRemoved(rewarder);
   }
 
-  function addRewardToken(address rewardToken) public onlyOwner {
+  function addRewardToken(address rewardToken) public nonReentrant onlyOwner {
     require(rewardToken != address(0), "Zero address detected");
     require(!_rewardTokensSet.contains(rewardToken), "Already added");
     _rewardTokensSet.add(rewardToken);
     emit RewardTokenAdded(rewardToken);
   }
 
-  function addRewards(address rewardToken, uint256 rewardAmount, uint256 durationInDays) external onlyValidRewardToken(rewardToken) onlyRewarder {
+  function addRewards(address rewardToken, uint256 rewardAmount, uint256 durationInDays) external nonReentrant onlyValidRewardToken(rewardToken) onlyRewarder {
     require(rewardAmount > 0, "Reward amount should be greater than 0");
     require(durationInDays > 0, 'Reward duration too short');
 
     uint256 rewardDuration = durationInDays.mul(1 days);
     IERC20(rewardToken).safeTransferFrom(_msgSender(), address(this), rewardAmount);
-    notifyRewardsAmount(rewardToken, rewardAmount, rewardDuration);
+    _notifyRewardsAmount(rewardToken, rewardAmount, rewardDuration);
   }
 
-  function notifyRewardsAmount(address rewardToken, uint256 reward, uint256 rewardDuration) internal virtual onlyRewarder updateRewards(address(0), rewardToken) {
+  function _notifyRewardsAmount(address rewardToken, uint256 reward, uint256 rewardDuration) internal virtual onlyRewarder updateRewards(address(0), rewardToken) {
     if (block.timestamp >= periodFinish[rewardToken]) {
       rewardRates[rewardToken] = reward.div(rewardDuration);
     }
@@ -244,6 +268,19 @@ contract LsdxTreasury is Ownable, ReentrancyGuard {
     lastUpdateTime[rewardToken] = block.timestamp;
     periodFinish[rewardToken] = block.timestamp.add(rewardDuration);
     emit RewardsAdded(rewardToken, _msgSender(), reward, rewardDuration);
+  }
+
+  function adminFee() external view returns (uint256) {
+    return _adminFee;
+  }
+
+  function withdrawAdminFee(address to) external nonReentrant onlyRewarder {
+    require(_adminFee > 0, 'No admin fee to withdraw');
+
+    lsdToken.safeTransfer(to, _adminFee);
+    emit AdminFeeWithdrawn(_msgSender(), to, _adminFee);
+
+    _adminFee = 0;
   }
 
   /* ========== MODIFIERS ========== */
@@ -284,10 +321,12 @@ contract LsdxTreasury is Ownable, ReentrancyGuard {
   /* ========== EVENTS ========== */
 
   event Deposited(address indexed user, uint256 amount);
-  event Withdrawn(address indexed user, uint256 amount);
+  event Withdrawn(address indexed user, uint256 totalAmount, uint256 fee);
   event RewardsPaid(address indexed user, address indexed rewardToken, uint256 reward);
   event RewardTokenAdded(address indexed rewardToken);
   event RewardsAdded(address indexed rewardToken, address indexed rewarder, uint256 reward, uint256 rewardDuration);
   event RewarderAdded(address indexed rewarder);
   event RewarderRemoved(address indexed rewarder);
+  event AdminFeeAccrued(address indexed user, uint256 totalAmount, uint256 fee);
+  event AdminFeeWithdrawn(address indexed rewarder, address indexed to, uint256 amount);
 }

@@ -5,7 +5,7 @@ import { time } from "@nomicfoundation/hardhat-network-helpers";
 import { anyValue } from '@nomicfoundation/hardhat-chai-matchers/withArgs';
 import { loadFixture } from '@nomicfoundation/hardhat-network-helpers';
 import { LsdxTreasury__factory } from '../../typechain/factories/contracts/treasury/LsdxTreasury__factory';
-import { ONE_DAY_IN_SECS, deployStakingPoolContractsFixture, expandTo18Decimals, expectBigNumberEquals, nativeTokenAddress } from '../utils';
+import { ONE_DAY_IN_SECS, deployStakingPoolContractsFixture, expandTo18Decimals, expectBigNumberEquals } from '../utils';
 
 const { provider, BigNumber } = ethers;
 
@@ -13,13 +13,12 @@ describe('LSDx Treansury', () => {
 
   it('E2E scenario works', async () => {
 
-    const { lsdCoin, veLSD, erc20, weth, Alice, Bob, Caro, Dave } = await loadFixture(deployStakingPoolContractsFixture);
+    const { lsdCoin, veLSD, erc20, weth, Alice, Bob, Caro } = await loadFixture(deployStakingPoolContractsFixture);
     const ethx = erc20;
 
-    // Deploy LsdxTreasury. Timelock is set to 30 days for testing
-    const timelockInDays = 30;
+    // Deploy LsdxTreasury
     const LsdxTreasury = await ethers.getContractFactory('LsdxTreasury');
-    const LsdxTreasuryContract = await LsdxTreasury.deploy(lsdCoin.address, [lsdCoin.address, ethx.address], veLSD.address, timelockInDays);
+    const LsdxTreasuryContract = await LsdxTreasury.deploy(lsdCoin.address, [lsdCoin.address, ethx.address], veLSD.address);
     const lsdxTreasury = LsdxTreasury__factory.connect(LsdxTreasuryContract.address, provider);
     expect(await lsdxTreasury.isSupportedRewardToken(ethx.address)).to.equal(true);
     expect(await lsdxTreasury.isSupportedRewardToken(weth.address)).to.equal(false);
@@ -58,26 +57,24 @@ describe('LSDx Treansury', () => {
 
     // Check Bob's locked velsd
     expect(await lsdxTreasury.velsdLockedCount(Bob.address)).to.equal(2);
-    const firstLock = _.pick(await lsdxTreasury.velsdLockedInfoByIndex(Bob.address, 0), ['lockId', 'amount', 'startTime', 'unlockTime']);
+    const firstLock = _.pick(await lsdxTreasury.velsdLockedInfoByIndex(Bob.address, 0), ['lockId', 'amount', 'depositTime', 'unlockTime']);
     expect(firstLock).to.deep.equal({
       lockId: BigNumber.from(1),
       amount: expandTo18Decimals(1_000),
-      startTime: BigNumber.from(bobFirstDepositTime),
-      unlockTime: BigNumber.from(bobFirstDepositTime).add(timelockInDays * ONE_DAY_IN_SECS)
+      depositTime: BigNumber.from(bobFirstDepositTime)
     });
-    const secondLock = _.pick(await lsdxTreasury.velsdLockedInfoByIndex(Bob.address, 1), ['lockId', 'amount', 'startTime', 'unlockTime']);
+    const secondLock = _.pick(await lsdxTreasury.velsdLockedInfoByIndex(Bob.address, 1), ['lockId', 'amount', 'depositTime', 'unlockTime']);
     expect(secondLock).to.deep.equal({
       lockId: BigNumber.from(2),
       amount: expandTo18Decimals(2_000),
-      startTime: BigNumber.from(bobSecondDepositTime),
-      unlockTime: BigNumber.from(bobSecondDepositTime).add(timelockInDays * ONE_DAY_IN_SECS)
+      depositTime: BigNumber.from(bobSecondDepositTime)
     });
 
-    // Rewards is 0, and could not withdraw locked veLSD
+    // Rewards is 0
     expect(await lsdxTreasury.earned(Bob.address, lsdCoin.address)).to.equal(0);
     expect(await lsdxTreasury.earned(Bob.address, ethx.address)).to.equal(0);
     await expect(lsdxTreasury.earned(Bob.address, weth.address)).to.be.rejectedWith(/Reward token not supported/);
-    await expect(lsdxTreasury.connect(Bob).withdrawFirstSumOfUnlockedToken()).to.be.rejectedWith(/No unlocked deposit to withdraw/);
+    // await expect(lsdxTreasury.connect(Bob).withdrawFirstSumOfUnlockedToken()).to.be.rejectedWith(/No unlocked deposit to withdraw/);
 
     // Day 2. Admin deposit 3_000_000 $LSD as rewards, last for 3 days (1_000_000 per day)
     await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 2);
@@ -178,30 +175,59 @@ describe('LSDx Treansury', () => {
     expectBigNumberEquals(totalWethRewardsFor10Days.div(10).mul(3).div(4), await lsdxTreasury.earned(Bob.address, weth.address));
     expectBigNumberEquals(totalWethRewardsFor10Days.div(10).mul(1).div(4), await lsdxTreasury.earned(Caro.address, weth.address));
 
-    // Day 30
-    await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 30 + 60 * 60);
+    // Day 10. Bob withdraw his first deposit, and should have 20% penalty
+    await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 10);
+    expect(await lsdxTreasury.adminFee()).to.equal(0);
     let balanceBob = await lsdxTreasury.balanceOf(Bob.address);
     lsdBalanceBob = await lsdCoin.balanceOf(Bob.address);
     let velsdBalanceBob = await veLSD.balanceOf(Bob.address);
-    await expect(lsdxTreasury.connect(Bob).withdrawFirstSumOfUnlockedToken())
-      .to.emit(lsdCoin, 'Transfer').withArgs(lsdxTreasury.address, Bob.address, expandTo18Decimals(1_000))
+    await expect(lsdxTreasury.connect(Bob).withdrawFirstSumOfLockedToken())
+      .to.emit(lsdCoin, 'Transfer').withArgs(lsdxTreasury.address, Bob.address, expandTo18Decimals(800))
       .to.emit(veLSD, 'Transfer').withArgs(Bob.address, ethers.constants.AddressZero, expandTo18Decimals(1_000))
-      .to.emit(lsdxTreasury, 'Withdrawn').withArgs(Bob.address, expandTo18Decimals(1_000));
+      .to.emit(lsdxTreasury, 'Withdrawn').withArgs(Bob.address, expandTo18Decimals(1_000), expandTo18Decimals(200))
+      .to.emit(lsdxTreasury, 'AdminFeeAccrued').withArgs(Bob.address, expandTo18Decimals(1_000), expandTo18Decimals(200));
     expect(await lsdxTreasury.balanceOf(Bob.address)).to.equal(balanceBob.sub(expandTo18Decimals(1_000)));
-    expect(await lsdCoin.balanceOf(Bob.address)).to.equal(lsdBalanceBob.add(expandTo18Decimals(1_000)));
+    expect(await lsdCoin.balanceOf(Bob.address)).to.equal(lsdBalanceBob.add(expandTo18Decimals(800)));
     expect(await veLSD.balanceOf(Bob.address)).to.equal(velsdBalanceBob.sub(expandTo18Decimals(1_000)));
     expect(await lsdxTreasury.velsdLockedCount(Bob.address)).to.equal(1);
+    expect(await lsdxTreasury.adminFee()).to.equal(expandTo18Decimals(200));
 
-    // Day 31
-    await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 31 + 60 * 60);
-    await expect(lsdxTreasury.connect(Bob).exitFirstSumOfUnlockedToken())
-      .to.emit(lsdCoin, 'Transfer').withArgs(lsdxTreasury.address, Bob.address, expandTo18Decimals(2_000))
+    // Withdraw admin fee
+    await expect(lsdxTreasury.connect(Bob).withdrawAdminFee(Bob.address)).to.be.rejectedWith(/Not a rewarder/);
+    await expect(lsdxTreasury.connect(Alice).addRewarder(Bob.address)).to.emit(lsdxTreasury, 'RewarderAdded').withArgs(Bob.address);
+    await expect(lsdxTreasury.connect(Bob).withdrawAdminFee(Caro.address))
+      .to.emit(lsdCoin, 'Transfer').withArgs(lsdxTreasury.address, Caro.address, expandTo18Decimals(200))
+      .to.emit(lsdxTreasury, 'AdminFeeWithdrawn').withArgs(Bob.address, Caro.address, expandTo18Decimals(200));
+    expect(await lsdxTreasury.adminFee()).to.equal(0);
+
+    // Day 32. Bob withdraw his second deposit, and should have 10% penalty
+    await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 32);
+    balanceBob = await lsdxTreasury.balanceOf(Bob.address);
+    velsdBalanceBob = await veLSD.balanceOf(Bob.address);
+    await expect(lsdxTreasury.connect(Bob).exitFirstSumOfLockedToken())
+      .to.emit(lsdCoin, 'Transfer').withArgs(lsdxTreasury.address, Bob.address, expandTo18Decimals(1_800))
       .to.emit(veLSD, 'Transfer').withArgs(Bob.address, ethers.constants.AddressZero, expandTo18Decimals(2_000))
-      .to.emit(lsdxTreasury, 'Withdrawn').withArgs(Bob.address, expandTo18Decimals(2_000))
+      .to.emit(lsdxTreasury, 'Withdrawn').withArgs(Bob.address, expandTo18Decimals(2_000), expandTo18Decimals(200))
+      .to.emit(lsdxTreasury, 'AdminFeeAccrued').withArgs(Bob.address, expandTo18Decimals(2_000), expandTo18Decimals(200))
       .to.emit(lsdxTreasury, 'RewardsPaid').withArgs(Bob.address, lsdCoin.address, anyValue)
       .to.emit(lsdxTreasury, 'RewardsPaid').withArgs(Bob.address, ethx.address, anyValue)
       .to.emit(lsdxTreasury, 'RewardsPaid').withArgs(Bob.address, weth.address, anyValue);
-      expect(await lsdxTreasury.velsdLockedCount(Bob.address)).to.equal(0);
+    expect(await lsdxTreasury.balanceOf(Bob.address)).to.equal(balanceBob.sub(expandTo18Decimals(2_000)));
+    expect(await veLSD.balanceOf(Bob.address)).to.equal(velsdBalanceBob.sub(expandTo18Decimals(2_000)));
+    expect(await lsdxTreasury.velsdLockedCount(Bob.address)).to.equal(0);
+    expect(await lsdxTreasury.adminFee()).to.equal(expandTo18Decimals(200));
+
+    // Day 380. Caro should be able to withdraw with no penalty
+    await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 380);
+    await expect(lsdxTreasury.connect(Caro).exitFirstSumOfLockedToken())
+      .to.emit(lsdCoin, 'Transfer').withArgs(lsdxTreasury.address, Caro.address, expandTo18Decimals(1_000))
+      .to.emit(veLSD, 'Transfer').withArgs(Caro.address, ethers.constants.AddressZero, expandTo18Decimals(1_000))
+      .to.emit(lsdxTreasury, 'Withdrawn').withArgs(Caro.address, expandTo18Decimals(1_000), 0)
+      .to.emit(lsdxTreasury, 'RewardsPaid').withArgs(Caro.address, lsdCoin.address, anyValue)
+      .to.emit(lsdxTreasury, 'RewardsPaid').withArgs(Caro.address, ethx.address, anyValue)
+      .to.emit(lsdxTreasury, 'RewardsPaid').withArgs(Caro.address, weth.address, anyValue);
+    expect(await lsdxTreasury.adminFee()).to.equal(expandTo18Decimals(200));
+
   });
 
 });

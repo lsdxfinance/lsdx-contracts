@@ -24,7 +24,7 @@ contract veLSD is ERC20 {
     _mint(to, amount);
   }
 
-  /// @dev Only the minter (aka LsdxTreasury) could burn veLSD tokens on user withdraw (after time lock)
+  /// @dev Only the minter (aka LsdxTreasury) could burn veLSD tokens on user withdraw
   function burnFrom(address account, uint256 amount) public onlyMinter {
     _burn(account, amount);
   }
