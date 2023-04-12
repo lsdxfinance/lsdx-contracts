@@ -186,17 +186,20 @@ contract LsdxTreasury is Ownable, ReentrancyGuard {
     require(lock.amount > 0, "Invalid deposit amount");
 
     uint256 period = block.timestamp.sub(lock.depositTime);
-    if (period < 30 days) {
-      return lock.amount.mul(20).div(100);
+    if (period < 7 days) {
+      return lock.amount.mul(90).div(100);
+    }
+    else if (period < 30 days) {
+      return lock.amount.mul(50).div(100);
     }
     else if (period < 90 days) {
-      return lock.amount.mul(10).div(100);
+      return lock.amount.mul(35).div(100);
     }
     else if (period < 180 days) {
-      return lock.amount.mul(5).div(100);
+      return lock.amount.mul(20).div(100);
     }
     else if (period < 365 days) {
-      return lock.amount.mul(25).div(1000);
+      return lock.amount.mul(10).div(100);
     }
     else {
       return 0;
