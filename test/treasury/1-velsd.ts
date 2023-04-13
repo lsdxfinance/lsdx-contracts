@@ -32,6 +32,7 @@ describe('veLSD', () => {
 
     // veLSD could not be transferred
     await expect(veLSD.connect(Alice).transfer(Bob.address, 1_000)).to.be.rejected;
+    await expect(veLSD.connect(Alice).transfer(ethers.constants.AddressZero, 1)).to.be.rejected;
 
     // `approve` is not disabled, but with no effect
     await expect(veLSD.connect(Alice).approve(Bob.address, 1_000))

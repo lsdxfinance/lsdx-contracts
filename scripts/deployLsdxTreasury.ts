@@ -9,14 +9,14 @@ const privateKey: string = process.env.PRIVATE_KEY || "";
 const infuraKey: string = process.env.INFURA_KEY || "";
 
 // // Goerli
-const provider = new ethers.providers.JsonRpcProvider(`https://goerli.infura.io/v3/${infuraKey}`);
-const lsdCoinAddress = '0x6a45C5515CD20905e6A971A3185D82E8988aA826';
-const ethxAddress = '0xF4C911C395DB0b993AD2909c0135cbd4D31D89CA';
+// const provider = new ethers.providers.JsonRpcProvider(`https://goerli.infura.io/v3/${infuraKey}`);
+// const lsdCoinAddress = '0x6a45C5515CD20905e6A971A3185D82E8988aA826';
+// const ethxAddress = '0xF4C911C395DB0b993AD2909c0135cbd4D31D89CA';
 
 // // Mainnet
-// const provider = new ethers.providers.JsonRpcProvider(`https://mainnet.infura.io/v3/${infuraKey}`);
-// const lsdCoinAddress = '0xfAC77A24E52B463bA9857d6b758ba41aE20e31FF';
-// const ethxAddress = '0x2ab18d3236e0a22D372281042c902D39045EF13e';
+const provider = new ethers.providers.JsonRpcProvider(`https://mainnet.infura.io/v3/${infuraKey}`);
+const lsdCoinAddress = '0xfAC77A24E52B463bA9857d6b758ba41aE20e31FF';
+const ethxAddress = '0x21eAD867C8c5181854f6f8Ce71f75b173d2Bc16A';
 
 async function main() {
   const VeLSD = await ethers.getContractFactory('veLSD');

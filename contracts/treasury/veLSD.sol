@@ -11,12 +11,8 @@ contract veLSD is ERC20 {
   }
 
   /// @dev Disable normal token transfer
-  function _transfer(address from, address to, uint256) internal view override {
-    bool _mint = (from == minter) && (to != address(0));
-    bool _burn = (_msgSender() == minter) && (from != address(0)) && (to == address(0));
-    if (!_mint && !_burn) {
-      revert Unsupported();
-    }
+  function _transfer(address, address, uint256) internal pure override {
+    revert Unsupported();
   }
 
   /// @dev Only the minter (aka LsdxTreasury) could mint veLSD tokens on user deposit
