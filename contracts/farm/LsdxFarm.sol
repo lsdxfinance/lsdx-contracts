@@ -37,13 +37,11 @@ contract LsdxFarm is IFarm, LsdxFarmRewardsDistributionRecipient, ReentrancyGuar
   constructor(
     address _rewardsDistribution,
     address _rewardsToken,
-    address _stakingToken,
-    uint256 _durationInDays
+    address _stakingToken
   ) {
     rewardsToken = IERC20(_rewardsToken);
     stakingToken = IERC20(_stakingToken);
     rewardsDistribution = _rewardsDistribution;
-    rewardsDuration = _durationInDays.mul(3600 * 24);
   }
 
   /* ========== VIEWS ========== */
@@ -113,7 +111,8 @@ contract LsdxFarm is IFarm, LsdxFarmRewardsDistributionRecipient, ReentrancyGuar
 
   /* ========== RESTRICTED FUNCTIONS ========== */
 
-  function notifyRewardAmount(uint256 reward) external override onlyRewardsDistribution updateReward(address(0)) {
+  function notifyRewardAmount(uint256 reward, uint256 durationInDays) external override onlyRewardsDistribution updateReward(address(0)) {
+    rewardsDuration = durationInDays.mul(1 days);
     if (block.timestamp >= periodFinish) {
       rewardRate = reward.div(rewardsDuration);
     } else {

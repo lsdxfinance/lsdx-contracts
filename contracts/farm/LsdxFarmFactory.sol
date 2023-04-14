@@ -18,8 +18,6 @@ contract LsdxFarmFactory is Ownable {
   // info about rewards for a particular staking token
   struct FarmInfo {
     address farmAddress;
-    uint256 startTime;
-    uint256 roundDurationInDays;
     uint256 totalRewardsAmount;
   }
 
@@ -28,9 +26,7 @@ contract LsdxFarmFactory is Ownable {
 
   event FarmDeployed(
     address indexed farmAddress,
-    address indexed stakingToken,
-    uint256 startTime,
-    uint256 roundDurationInDays
+    address indexed stakingToken
   );
 
   constructor(
@@ -52,26 +48,22 @@ contract LsdxFarmFactory is Ownable {
   ///// permissioned functions
 
   // deploy a by-stages staking reward contract for the staking token
-  function deployPool(address stakingToken, uint256 startTime, uint256 roundDurationInDays) public onlyOwner {
+  function deployPool(address stakingToken) public onlyOwner {
     FarmInfo storage info = farmInfoByStakingToken[stakingToken];
 
     require(info.farmAddress == address(0), 'LsdxFarmFactory::deployPool: already deployed');
-    require(startTime >= block.timestamp, 'LsdxFarmFactory::deployPool: start too soon');
-    require(roundDurationInDays > 0, 'LsdxFarmFactory::deployPool: duration too short');
 
-    info.farmAddress = address(new LsdxFarm(/*_rewardsDistribution=*/ address(this), rewardsToken, stakingToken, roundDurationInDays));
-    info.startTime = startTime;
-    info.roundDurationInDays = roundDurationInDays;
+    info.farmAddress = address(new LsdxFarm(/*_rewardsDistribution=*/ address(this), rewardsToken, stakingToken));
     info.totalRewardsAmount = 0;
 
     stakingTokens.push(stakingToken);
-    emit FarmDeployed(info.farmAddress, stakingToken, startTime, roundDurationInDays);
+    emit FarmDeployed(info.farmAddress, stakingToken);
   }
 
-  function addRewards(address stakingToken, uint256 rewardsAmount) public onlyOwner {
+  function addRewards(address stakingToken, uint256 rewardsAmount, uint256 roundDurationInDays) public onlyOwner {
     FarmInfo storage info = farmInfoByStakingToken[stakingToken];
     require(info.farmAddress != address(0), 'LsdxFarmFactory::addRewards: not deployed');
-    require(block.timestamp >= info.startTime, 'LsdxFarmFactory::addRewards: not ready');
+    require(roundDurationInDays > 0, 'LsdxFarmFactory::deployPool: duration too short');
 
     if (rewardsAmount > 0) {
       info.totalRewardsAmount = info.totalRewardsAmount.add(rewardsAmount);
@@ -80,7 +72,7 @@ contract LsdxFarmFactory is Ownable {
         IERC20(rewardsToken).transferFrom(msg.sender, info.farmAddress, rewardsAmount),
         'LsdxFarmFactory::addRewards: transfer failed'
       );
-      LsdxFarm(address(info.farmAddress)).notifyRewardAmount(rewardsAmount);
+      LsdxFarm(address(info.farmAddress)).notifyRewardAmount(rewardsAmount, roundDurationInDays);
     }
   }
 
