@@ -2,13 +2,13 @@ import _ from 'lodash';
 import { ethers } from 'hardhat';
 import { expect } from 'chai';
 import { loadFixture } from '@nomicfoundation/hardhat-network-helpers';
-import { deployStakingPoolContractsFixture } from '../utils';
+import { deployLsdxContractsFixture } from '../utils';
 
 describe('veLSD', () => {
 
   it('Basic functionalities', async () => {
 
-    const { veLSD, Alice, Bob } = await loadFixture(deployStakingPoolContractsFixture);
+    const { veLSD, Alice, Bob } = await loadFixture(deployLsdxContractsFixture);
 
     // `Minter` could mint tokens
     await expect(veLSD.connect(Alice).mint(Alice.address, 10_000))

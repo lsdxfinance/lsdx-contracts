@@ -3,13 +3,13 @@ import { expect } from 'chai';
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 import { loadFixture } from '@nomicfoundation/hardhat-network-helpers';
 import { anyValue } from '@nomicfoundation/hardhat-chai-matchers/withArgs';
-import { ONE_DAY_IN_SECS, deployStakingPoolContractsFixture, expandTo18Decimals, expectBigNumberEquals } from '../utils';
+import { ONE_DAY_IN_SECS, deployLsdxContractsFixture, expandTo18Decimals, expectBigNumberEquals } from '../utils';
 
 describe('V2 frxETH Staking Pool', () => {
 
   it('Basic scenario works', async () => {
 
-    const { lsdCoin, v2FraxStakingPool, frxETH, sfrxETH, Alice, Bob, Caro, Dave } = await loadFixture(deployStakingPoolContractsFixture);
+    const { lsdCoin, v2FraxStakingPool, frxETH, sfrxETH, Alice, Bob, Caro, Dave } = await loadFixture(deployLsdxContractsFixture);
 
     const rewardDurationInDays = 7;
 

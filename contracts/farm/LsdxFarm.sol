@@ -130,7 +130,7 @@ contract LsdxFarm is IFarm, LsdxFarmRewardsDistributionRecipient, ReentrancyGuar
 
     lastUpdateTime = block.timestamp;
     periodFinish = block.timestamp.add(rewardsDuration);
-    emit RewardAdded(reward);
+    emit RewardAdded(reward, durationInDays);
   }
 
   /* ========== MODIFIERS ========== */
@@ -147,7 +147,7 @@ contract LsdxFarm is IFarm, LsdxFarmRewardsDistributionRecipient, ReentrancyGuar
 
   /* ========== EVENTS ========== */
 
-  event RewardAdded(uint256 reward);
+  event RewardAdded(uint256 reward, uint256 durationInDays);
   event Staked(address indexed user, uint256 amount);
   event Withdrawn(address indexed user, uint256 amount);
   event RewardPaid(address indexed user, uint256 reward);

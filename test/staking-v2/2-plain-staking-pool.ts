@@ -3,13 +3,13 @@ import { expect } from 'chai';
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 import { loadFixture } from '@nomicfoundation/hardhat-network-helpers';
 import { anyValue } from '@nomicfoundation/hardhat-chai-matchers/withArgs';
-import { ONE_DAY_IN_SECS, deployStakingPoolContractsFixture, expandTo18Decimals, expectBigNumberEquals } from '../utils';
+import { ONE_DAY_IN_SECS, deployLsdxContractsFixture, expandTo18Decimals, expectBigNumberEquals } from '../utils';
 
 describe('V2 Plain Staking Pool', () => {
 
   it('Basic scenario works', async () => {
 
-    const { lsdCoin, v2PlainStakingPool, erc20, Alice, Bob, Caro, Dave } = await loadFixture(deployStakingPoolContractsFixture);
+    const { lsdCoin, v2PlainStakingPool, erc20, Alice, Bob, Caro, Dave } = await loadFixture(deployLsdxContractsFixture);
 
     const rewardDurationInDays = 7;
     const totalReward = expandTo18Decimals(7_000_000);
@@ -160,7 +160,7 @@ describe('V2 Plain Staking Pool', () => {
 
   it('Discontinued staking works', async () => {
 
-    const { lsdCoin, v2PlainStakingPool, erc20, Alice, Bob, Caro } = await loadFixture(deployStakingPoolContractsFixture);
+    const { lsdCoin, v2PlainStakingPool, erc20, Alice, Bob, Caro } = await loadFixture(deployLsdxContractsFixture);
 
     const rewardDurationInDays = 7;
     await expect(erc20.connect(Alice).mint(Bob.address, expandTo18Decimals(10_000))).not.to.be.reverted;
@@ -209,7 +209,7 @@ describe('V2 Plain Staking Pool', () => {
   });
 
   it('Ownership can be transferred', async () => {
-    const { lsdCoin, v2PlainStakingPool, Alice, Bob } = await loadFixture(deployStakingPoolContractsFixture);
+    const { lsdCoin, v2PlainStakingPool, Alice, Bob } = await loadFixture(deployLsdxContractsFixture);
 
     // Alice transfer ownership to Bob
     await expect(v2PlainStakingPool.connect(Alice).transferOwnership(Bob.address))

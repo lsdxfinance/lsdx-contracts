@@ -2,13 +2,13 @@ import _ from 'lodash';
 import { expect } from 'chai';
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 import { loadFixture } from '@nomicfoundation/hardhat-network-helpers';
-import { deployStakingPoolContractsFixture, expandTo18Decimals } from '../utils';
+import { deployLsdxContractsFixture, expandTo18Decimals } from '../utils';
 import { anyValue } from '@nomicfoundation/hardhat-chai-matchers/withArgs';
 
 describe('sfrxETH', () => {
 
   it('sfrxETH works', async () => {
-    const { frxETH, sfrxETH, Alice, Bob } = await loadFixture(deployStakingPoolContractsFixture);
+    const { frxETH, sfrxETH, Alice, Bob } = await loadFixture(deployLsdxContractsFixture);
 
     // Mint 10 frxETH to Alice and Bob, respectively
     const aliceBobFrxEthAmount = expandTo18Decimals(10);

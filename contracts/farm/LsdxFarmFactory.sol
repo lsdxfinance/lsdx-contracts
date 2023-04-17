@@ -1,13 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.9;
 
-import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
+import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 import './LsdxFarm.sol';
 
-contract LsdxFarmFactory is Ownable {
+contract LsdxFarmFactory is Ownable, ReentrancyGuard {
   using SafeMath for uint256;
+  using EnumerableSet for EnumerableSet.AddressSet;
 
   // immutables
   address public rewardsToken;
@@ -24,20 +27,18 @@ contract LsdxFarmFactory is Ownable {
   // rewards info by staking token
   mapping(address => FarmInfo) public farmInfoByStakingToken;
 
-  event FarmDeployed(
-    address indexed farmAddress,
-    address indexed stakingToken
-  );
+  EnumerableSet.AddressSet private _rewardersSet;
 
   constructor(
     address _rewardsToken
   ) Ownable() {
     rewardsToken = _rewardsToken;
+    addRewarder(_msgSender());
   }
 
-  function getStakingPoolAddress(address stakingToken) public virtual view returns (address) {
+  function getFarmAddress(address stakingToken) public virtual view returns (address) {
     FarmInfo storage info = farmInfoByStakingToken[stakingToken];
-    require(info.farmAddress != address(0), 'LsdxFarmFactory::getPoolAddress: not deployed');
+    require(info.farmAddress != address(0), 'LsdxFarmFactory::getFarmAddress: not deployed');
     return info.farmAddress;
   }
 
@@ -45,13 +46,18 @@ contract LsdxFarmFactory is Ownable {
     return stakingTokens;
   }
 
+  /// @dev No guarantees are made on the ordering
+  function getRewarders() public view returns (address[] memory) {
+    return _rewardersSet.values();
+  }
+
   ///// permissioned functions
 
   // deploy a by-stages staking reward contract for the staking token
-  function deployPool(address stakingToken) public onlyOwner {
+  function deployFarm(address stakingToken) public onlyOwner {
     FarmInfo storage info = farmInfoByStakingToken[stakingToken];
 
-    require(info.farmAddress == address(0), 'LsdxFarmFactory::deployPool: already deployed');
+    require(info.farmAddress == address(0), 'LsdxFarmFactory::deployFarm: already deployed');
 
     info.farmAddress = address(new LsdxFarm(/*_rewardsDistribution=*/ address(this), rewardsToken, stakingToken));
     info.totalRewardsAmount = 0;
@@ -60,10 +66,10 @@ contract LsdxFarmFactory is Ownable {
     emit FarmDeployed(info.farmAddress, stakingToken);
   }
 
-  function addRewards(address stakingToken, uint256 rewardsAmount, uint256 roundDurationInDays) public onlyOwner {
+  function addRewards(address stakingToken, uint256 rewardsAmount, uint256 roundDurationInDays) public onlyRewarder {
     FarmInfo storage info = farmInfoByStakingToken[stakingToken];
     require(info.farmAddress != address(0), 'LsdxFarmFactory::addRewards: not deployed');
-    require(roundDurationInDays > 0, 'LsdxFarmFactory::deployPool: duration too short');
+    require(roundDurationInDays > 0, 'LsdxFarmFactory::addRewards: duration too short');
 
     if (rewardsAmount > 0) {
       info.totalRewardsAmount = info.totalRewardsAmount.add(rewardsAmount);
@@ -76,4 +82,26 @@ contract LsdxFarmFactory is Ownable {
     }
   }
 
+  function addRewarder(address rewarder) public nonReentrant onlyOwner {
+    require(rewarder != address(0), "Zero address detected");
+    require(!_rewardersSet.contains(rewarder), "Already added");
+
+    _rewardersSet.add(rewarder);
+    emit RewarderAdded(rewarder);
+  }
+
+  function removeRewarder(address rewarder) public nonReentrant onlyOwner {
+    require(_rewardersSet.contains(rewarder), "Not a rewarder");
+    require(_rewardersSet.remove(rewarder), "Failed to remove rewarder");
+    emit RewarderRemoved(rewarder);
+  }
+
+  modifier onlyRewarder() {
+    require(_rewardersSet.contains(_msgSender()), "Not a rewarder");
+    _;
+  }
+
+  event FarmDeployed(address indexed farmAddress, address indexed stakingToken);
+  event RewarderAdded(address indexed rewarder);
+  event RewarderRemoved(address indexed rewarder);
 }

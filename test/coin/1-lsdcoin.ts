@@ -2,13 +2,13 @@ import _ from 'lodash';
 import { ethers, upgrades } from 'hardhat';
 import { expect } from 'chai';
 import { loadFixture } from '@nomicfoundation/hardhat-network-helpers';
-import { deployStakingPoolContractsFixture } from '../utils';
+import { deployLsdxContractsFixture } from '../utils';
 
 describe('LsdCoin', () => {
 
   it('Mintable, transferable and burnable', async () => {
 
-    const { lsdCoin, Alice, Bob, Caro, Dave } = await loadFixture(deployStakingPoolContractsFixture);
+    const { lsdCoin, Alice, Bob, Caro, Dave } = await loadFixture(deployLsdxContractsFixture);
 
     // Bob: 10_000
     await expect(lsdCoin.connect(Alice).mint(Bob.address, 10_000))
@@ -45,7 +45,7 @@ describe('LsdCoin', () => {
 
   it('Access control', async () => {
 
-    const { lsdCoin, Alice, Bob } = await loadFixture(deployStakingPoolContractsFixture);
+    const { lsdCoin, Alice, Bob } = await loadFixture(deployLsdxContractsFixture);
 
     await expect(lsdCoin.connect(Bob).mint(Bob.address, 10_000)).to.be.rejectedWith(
       /AccessControl/,
@@ -94,7 +94,7 @@ describe('LsdCoin', () => {
 
   it('Pausable', async () => {
 
-    const { lsdCoin, Alice, Bob, Caro } = await loadFixture(deployStakingPoolContractsFixture);
+    const { lsdCoin, Alice, Bob, Caro } = await loadFixture(deployLsdxContractsFixture);
 
     await expect(lsdCoin.connect(Alice).mint(Bob.address, 10_000))
       .to.emit(lsdCoin, 'Transfer').withArgs(ethers.constants.AddressZero, Bob.address, 10_000);
@@ -135,7 +135,7 @@ describe('LsdCoin', () => {
   });
 
   it('Upgradable', async () => {
-    const { lsdCoin, Alice, Bob, Caro, Dave } = await loadFixture(deployStakingPoolContractsFixture);
+    const { lsdCoin, Alice, Bob, Caro, Dave } = await loadFixture(deployLsdxContractsFixture);
 
     // Bob: 10_000
     await expect(lsdCoin.connect(Alice).mint(Bob.address, 10_000))

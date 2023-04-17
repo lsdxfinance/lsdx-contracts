@@ -2,12 +2,12 @@ import _ from 'lodash';
 import { ethers } from 'hardhat';
 import { expect } from 'chai';
 import { loadFixture } from '@nomicfoundation/hardhat-network-helpers';
-import { deployStakingPoolContractsFixture } from '../utils';
+import { deployLsdxContractsFixture } from '../utils';
 
 describe('stETH', () => {
 
   it('stETH works', async () => {
-    const { stETH, Alice, Bob, Caro } = await loadFixture(deployStakingPoolContractsFixture);
+    const { stETH, Alice, Bob, Caro } = await loadFixture(deployLsdxContractsFixture);
 
     const bobStakeAmount = ethers.utils.parseEther('1.5');
     await expect(stETH.connect(Bob).submit({value: bobStakeAmount}))

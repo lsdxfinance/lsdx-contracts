@@ -5,7 +5,7 @@ import { time } from "@nomicfoundation/hardhat-network-helpers";
 import { anyValue } from '@nomicfoundation/hardhat-chai-matchers/withArgs';
 import { loadFixture } from '@nomicfoundation/hardhat-network-helpers';
 import { LsdxTreasury__factory } from '../../typechain/factories/contracts/treasury/LsdxTreasury__factory';
-import { ONE_DAY_IN_SECS, deployStakingPoolContractsFixture, expandTo18Decimals, expectBigNumberEquals } from '../utils';
+import { ONE_DAY_IN_SECS, deployLsdxContractsFixture, expandTo18Decimals, expectBigNumberEquals } from '../utils';
 
 const { provider, BigNumber } = ethers;
 
@@ -13,7 +13,7 @@ describe('LSDx Treansury', () => {
 
   it('E2E scenario works', async () => {
 
-    const { lsdCoin, veLSD, erc20, weth, Alice, Bob, Caro } = await loadFixture(deployStakingPoolContractsFixture);
+    const { lsdCoin, veLSD, erc20, weth, Alice, Bob, Caro } = await loadFixture(deployLsdxContractsFixture);
     const ethx = erc20;
 
     // Deploy LsdxTreasury

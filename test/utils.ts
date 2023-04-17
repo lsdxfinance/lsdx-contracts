@@ -10,6 +10,7 @@ import { LsdCoin__factory } from '../typechain/factories/contracts/coin/LsdCoin_
 import { PlainStakingPool__factory } from '../typechain/factories/contracts/staking-v2/PlainStakingPool__factory';
 import { FraxStakingPool__factory } from '../typechain/factories/contracts/staking-v2/FraxStakingPool__factory';
 import { VeLSD__factory } from '../typechain/factories/contracts/treasury/VeLSD__factory';
+import { LsdxFarmFactory__factory } from '../typechain/factories/contracts/farm/LsdxFarmFactory__factory';
 
 const { provider, BigNumber } = ethers;
 
@@ -17,7 +18,7 @@ export const ONE_DAY_IN_SECS = 24 * 60 * 60;
 
 export const nativeTokenAddress = '0x0000000000000000000000000000000000000000';
 
-export async function deployStakingPoolContractsFixture() {
+export async function deployLsdxContractsFixture() {
   const  [Alice, Bob, Caro, Dave]  = await ethers.getSigners();
 
   const LsdCoin = await ethers.getContractFactory('LsdCoin');
@@ -44,6 +45,10 @@ export async function deployStakingPoolContractsFixture() {
   const stakingPoolFactoryContract = await StakingPoolFactory.deploy(lsdCoinProxy.address, weth.address);
   const stakingPoolFactory = StakingPoolFactory__factory.connect(stakingPoolFactoryContract.address, provider);
 
+  const LsdxFarmFactory = await ethers.getContractFactory('LsdxFarmFactory');
+  const LsdxFarmFactoryContract = await LsdxFarmFactory.deploy(lsdCoinProxy.address);
+  const lsdxFarmFactory = LsdxFarmFactory__factory.connect(LsdxFarmFactoryContract.address, provider);
+
   const TestERC20 = await ethers.getContractFactory('TestERC20');
   const erc20Proxy = await upgrades.deployProxy(TestERC20, ['Test ERC20', 'ERC20']);
   const erc20 = TestERC20__factory.connect(erc20Proxy.address, provider);
@@ -60,7 +65,7 @@ export async function deployStakingPoolContractsFixture() {
   const veLSDContract = await VeLSD.deploy();
   const veLSD = VeLSD__factory.connect(veLSDContract.address, provider);
 
-  return { lsdCoin, stakingPoolFactory, v2PlainStakingPool, v2FraxStakingPool, weth, stETH, frxETH, sfrxETH, erc20, veLSD, Alice, Bob, Caro, Dave };
+  return { lsdCoin, stakingPoolFactory, lsdxFarmFactory, v2PlainStakingPool, v2FraxStakingPool, weth, stETH, frxETH, sfrxETH, erc20, veLSD, Alice, Bob, Caro, Dave };
 }
 
 export function expandTo18Decimals(n: number) {

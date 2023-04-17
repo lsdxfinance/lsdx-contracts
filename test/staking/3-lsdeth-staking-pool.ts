@@ -4,7 +4,7 @@ import { expect } from 'chai';
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 import { loadFixture } from '@nomicfoundation/hardhat-network-helpers';
 import { anyValue } from '@nomicfoundation/hardhat-chai-matchers/withArgs';
-import { ONE_DAY_IN_SECS, deployStakingPoolContractsFixture, expandTo18Decimals, expectBigNumberEquals } from '../utils';
+import { ONE_DAY_IN_SECS, deployLsdxContractsFixture, expandTo18Decimals, expectBigNumberEquals } from '../utils';
 import { StakingPool__factory } from '../../typechain/factories/contracts/staking/StakingPool__factory';
 import { UniswapV2Factory__factory } from '../../typechain/factories/contracts/test/UniswapV2Factory.sol/UniswapV2Factory__factory';
 import { UniswapV2Router02__factory } from '../../typechain/factories/contracts/test/UniswapV2Router02.sol/UniswapV2Router02__factory';
@@ -16,7 +16,7 @@ describe('lsd-eth LP Staking Pool', () => {
 
   it('Basic scenario works', async () => {
 
-    const { lsdCoin, stakingPoolFactory, weth, Alice, Bob, Caro, Dave } = await loadFixture(deployStakingPoolContractsFixture);
+    const { lsdCoin, stakingPoolFactory, weth, Alice, Bob, Caro, Dave } = await loadFixture(deployLsdxContractsFixture);
 
     const UniswapV2Factory = await ethers.getContractFactory('UniswapV2Factory');
     const UniswapV2FactoryContract = await UniswapV2Factory.deploy(ethers.constants.AddressZero);

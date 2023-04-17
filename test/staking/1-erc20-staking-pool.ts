@@ -4,7 +4,7 @@ import { expect } from 'chai';
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 import { loadFixture } from '@nomicfoundation/hardhat-network-helpers';
 import { anyValue } from '@nomicfoundation/hardhat-chai-matchers/withArgs';
-import { ONE_DAY_IN_SECS, deployStakingPoolContractsFixture, expandTo18Decimals, expectBigNumberEquals, nativeTokenAddress } from '../utils';
+import { ONE_DAY_IN_SECS, deployLsdxContractsFixture, expandTo18Decimals, expectBigNumberEquals, nativeTokenAddress } from '../utils';
 import { StakingPool__factory } from '../../typechain/factories/contracts/staking/StakingPool__factory';
 
 const { provider } = ethers;
@@ -15,7 +15,7 @@ describe('Staking Pool', () => {
 
   it('Basic scenario works', async () => {
 
-    const { lsdCoin, stakingPoolFactory, erc20, Alice, Bob, Caro, Dave } = await loadFixture(deployStakingPoolContractsFixture);
+    const { lsdCoin, stakingPoolFactory, erc20, Alice, Bob, Caro, Dave } = await loadFixture(deployLsdxContractsFixture);
 
     // Deploy a staking pool, starting 1 day later, and lasts for 7 days
     const rewardStartTime = (await time.latest()) + ONE_DAY_IN_SECS;
@@ -180,7 +180,7 @@ describe('Staking Pool', () => {
 
   it('Discontinued staking works', async () => {
 
-    const { lsdCoin, stakingPoolFactory, erc20, Alice, Bob, Caro } = await loadFixture(deployStakingPoolContractsFixture);
+    const { lsdCoin, stakingPoolFactory, erc20, Alice, Bob, Caro } = await loadFixture(deployLsdxContractsFixture);
 
     // Deploy a staking pool, starting 1 day later, and lasts for 7 days
     const rewardStartTime = (await time.latest()) + ONE_DAY_IN_SECS;
@@ -237,7 +237,7 @@ describe('Staking Pool', () => {
 
   it('Deploying StakingPool fails if called twice for same token', async () => {
 
-    const { stakingPoolFactory, erc20, Alice } = await loadFixture(deployStakingPoolContractsFixture);
+    const { stakingPoolFactory, erc20, Alice } = await loadFixture(deployLsdxContractsFixture);
 
     const rewardStartTime = (await time.latest()) + ONE_DAY_IN_SECS;
     const rewardDurationInDays = 7;
@@ -253,7 +253,7 @@ describe('Staking Pool', () => {
 
   it('Deploying StakingPool can only be called by the owner', async () => {
 
-    const { stakingPoolFactory, erc20, Bob } = await loadFixture(deployStakingPoolContractsFixture);
+    const { stakingPoolFactory, erc20, Bob } = await loadFixture(deployLsdxContractsFixture);
 
     const rewardStartTime = (await time.latest()) + ONE_DAY_IN_SECS;
     const rewardDurationInDays = 7;
@@ -267,7 +267,7 @@ describe('Staking Pool', () => {
 
   it('Deployed StakingPools information is correctly stored', async () => {
 
-    const { stakingPoolFactory, erc20, Alice } = await loadFixture(deployStakingPoolContractsFixture);
+    const { stakingPoolFactory, erc20, Alice } = await loadFixture(deployLsdxContractsFixture);
 
     const pools = [
       {
@@ -306,7 +306,7 @@ describe('Staking Pool', () => {
   });
 
   it('Ownership can be transferred', async () => {
-    const { lsdCoin, stakingPoolFactory, erc20, Alice, Bob, Caro, Dave } = await loadFixture(deployStakingPoolContractsFixture);
+    const { lsdCoin, stakingPoolFactory, erc20, Alice, Bob, Caro, Dave } = await loadFixture(deployLsdxContractsFixture);
 
     // Bob should fail to deploy a pool
     const rewardStartTime = (await time.latest()) + ONE_DAY_IN_SECS;
