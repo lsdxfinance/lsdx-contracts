@@ -24,17 +24,17 @@ const pools = [
   {
     stakingTokenName: 'ETHx',
     stakingTokenAddress: '0x21eAD867C8c5181854f6f8Ce71f75b173d2Bc16A',
-    rewards: expandTo18Decimals(7_000)
+    rewards: expandTo18Decimals(875_000)
   },
   {
-    stakingTokenName: 'UNI LSD/ETH LP',
-    stakingTokenAddress: '',
-    rewards: expandTo18Decimals(7_000)
+    stakingTokenName: 'ETHx/ETH UNI LP',
+    stakingTokenAddress: '0x3ab2ebBe52F4A80098A461cF9ECdAde2eD645fc4',
+    rewards: expandTo18Decimals(525_000)
   },
   {
-    stakingTokenName: 'UNI ETHx/ETH LP',
-    stakingTokenAddress: '',
-    rewards: expandTo18Decimals(7_000)
+    stakingTokenName: 'LSD/ETH UNI LP',
+    stakingTokenAddress: '0x3322f41dfa379b6d3050c1e271b0b435b3ee3303',
+    rewards: expandTo18Decimals(350_000)
   },
 ];
 

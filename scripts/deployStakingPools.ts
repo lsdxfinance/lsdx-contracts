@@ -45,10 +45,10 @@ const pools = [
     roundDurationInDays: 7
   },
   {
-    stakingTokenName: 'LSD-ETH UNI V2 LP',
-    // stakingTokenAddress: '0x4ee39d23773Fa2caa6c9AD9aeaD67491eB2aB095', // Goerli
-    stakingTokenAddress: '0x3322f41dfa379b6d3050c1e271b0b435b3ee3303',
-    startTime: dayjs('2023-03-16T9:00:00.000Z'), // UTC time
+    stakingTokenName: 'ETHx-ETH UNI V2 LP',
+    // stakingTokenAddress: '', // Goerli
+    stakingTokenAddress: '0x3ab2ebBe52F4A80098A461cF9ECdAde2eD645fc4',
+    startTime: dayjs('2023-04-27T08:10:00.000Z'), // UTC time
     roundDurationInDays: 7
   },
 ];
