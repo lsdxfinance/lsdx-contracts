@@ -1,16 +1,18 @@
 import { expect } from 'chai'
 import { ethers, upgrades } from 'hardhat';
-import { StakingPoolFactory__factory } from '../typechain/factories/contracts/staking/StakingPoolFactory__factory';
-import { WETH9__factory } from '../typechain/factories/contracts/test/WETH9__factory';
-import { TestERC20__factory } from '../typechain/factories/contracts/test/TestERC20__factory';
-import { StETH__factory } from '../typechain/factories/contracts/test/StETH__factory';
-import { FrxETH__factory } from '../typechain/factories/contracts/test/frxETH.sol/FrxETH__factory';
-import { SfrxETH__factory } from '../typechain/factories/contracts/test/sfrxETH.sol/SfrxETH__factory';
-import { LsdCoin__factory } from '../typechain/factories/contracts/coin/LsdCoin__factory';
-import { PlainStakingPool__factory } from '../typechain/factories/contracts/staking-v2/PlainStakingPool__factory';
-import { FraxStakingPool__factory } from '../typechain/factories/contracts/staking-v2/FraxStakingPool__factory';
-import { VeLSD__factory } from '../typechain/factories/contracts/treasury/VeLSD__factory';
-import { LsdxFarmFactory__factory } from '../typechain/factories/contracts/farm/LsdxFarmFactory__factory';
+import { 
+  StakingPoolFactory__factory,
+  WETH9__factory,
+  TestERC20__factory,
+  StETH__factory,
+  FrxETH__factory,
+  SfrxETH__factory,
+  LsdCoin__factory,
+  PlainStakingPool__factory,
+  FraxStakingPool__factory,
+  VeLSD__factory,
+  LsdxFarmFactory__factory
+} from '../typechain';
 
 const { provider, BigNumber } = ethers;
 
