@@ -3,14 +3,14 @@ import { ethers } from 'hardhat';
 import { expect } from 'chai';
 import { loadFixture } from '@nomicfoundation/hardhat-network-helpers';
 import { deployLsdxContractsFixture } from '../utils';
-import { StafiUserDeposit__factory, RETHToken__factory } from '../../typechain';
+import { StafiUserDeposit__factory, StafiNetworkBalances__factory, RETHToken__factory } from '../../typechain';
 
 const { provider } = ethers;
 
 describe('rETH', () => {
 
   it('rETH works', async () => {
-    const { Alice, Bob, Caro } = await loadFixture(deployLsdxContractsFixture);
+    const { Alice, Bob } = await loadFixture(deployLsdxContractsFixture);
 
     const StafiStorage = await ethers.getContractFactory('StafiStorage');
     const stafiStorage = await StafiStorage.deploy();
@@ -25,7 +25,8 @@ describe('rETH', () => {
 
     const StafiNetworkBalances = await ethers.getContractFactory('StafiNetworkBalances');
     const StafiNetworkBalancesContract = await StafiNetworkBalances.deploy(stafiStorage.address);
-    await StafiUpgradeContract.addContract("stafiNetworkBalances", StafiNetworkBalancesContract.address)
+    await StafiUpgradeContract.addContract("stafiNetworkBalances", StafiNetworkBalancesContract.address);
+    const stafiNetworkBalances = StafiNetworkBalances__factory.connect(StafiNetworkBalancesContract.address, provider);
 
     const StafiUserDeposit = await ethers.getContractFactory('StafiUserDeposit');
     const StafiUserDepositContract = await StafiUserDeposit.deploy(stafiStorage.address);
@@ -39,9 +40,19 @@ describe('rETH', () => {
   
     expect(await rETH.getExchangeRate()).to.equal(ethers.utils.parseEther('1'));
 
-    const bobStakeAmount = ethers.utils.parseEther('1.5');
+    const bobStakeAmount = ethers.utils.parseEther('1');
+    await stafiUserDeposit.connect(Alice).setAssignDepositsEnabled(false);
     expect(await stafiUserDeposit.connect(Bob).deposit({value: bobStakeAmount})).not.to.be.reverted;
 
+    expect(await rETH.getExchangeRate()).to.equal(ethers.utils.parseEther('1'));
+    expect(await rETH.balanceOf(Bob.address)).to.equal(bobStakeAmount);
+
+    await stafiNetworkBalances.connect(Alice).testSyncUserDeposits(bobStakeAmount, bobStakeAmount);
+    // console.log(await stafiNetworkBalances.getTotalETHBalance(), await stafiNetworkBalances.getTotalRETHSupply());
+
+    const ethRewardsAmount = ethers.utils.parseEther('0.5');
+    expect(await stafiNetworkBalances.connect(Alice).testDepositEthRewards({value: ethRewardsAmount})).not.to.be.reverted;
+    expect(await rETH.getExchangeRate()).to.equal(ethers.utils.parseEther('1.5'));
   });
 
 });

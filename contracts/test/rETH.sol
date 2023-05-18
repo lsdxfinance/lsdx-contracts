@@ -1903,6 +1903,19 @@ contract StafiNetworkBalances is StafiBase, IStafiNetworkBalances {
         setUintS("network.balance.total", _value);
     }
 
+    // dev: test only
+    function testSyncUserDeposits(uint256 ethAmount, uint256 rethMintedAmount) external payable onlyOwner {
+        setTotalETHBalance(getTotalETHBalance().add(ethAmount));
+        setTotalRETHSupply(getTotalRETHSupply().add(rethMintedAmount));
+    }
+
+    // dev: test only
+    function testDepositEthRewards() external payable onlyOwner {
+        if (msg.value > 0) {
+            setTotalETHBalance(getTotalETHBalance().add(msg.value));
+        }
+    }
+
     // The current network staking ETH balance
     function getStakingETHBalance() override public view returns (uint256) {
         return getUintS("network.balance.staking");
@@ -2061,7 +2074,6 @@ contract StafiUserDeposit is StafiBase, IStafiUserDeposit, IStafiEtherWithdrawer
         // Emit deposit received event
         emit DepositReceived(msg.sender, msg.value, block.timestamp);
         // Process deposit
-        console.log('StafiUserDeposit 5');
         processDeposit();
     }
 
