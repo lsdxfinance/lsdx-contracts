@@ -2,5 +2,5 @@
 pragma solidity ^0.8.9;
 
 interface IRewardBooster {
-  function getStakeAmount(address account) external view returns (uint256, uint256);
+  function getBoostRate(address account, uint256 ethxAmount) external view returns (uint256);
 }

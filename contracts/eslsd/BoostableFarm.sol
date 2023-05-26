@@ -10,15 +10,18 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./interfaces/IBoostableFarm.sol";
+import "./interfaces/IRewardBooster.sol";
 
 contract BoostableFarm is IBoostableFarm, Ownable, ReentrancyGuard {
   using SafeMath for uint256;
   using SafeERC20 for IERC20;
 
-  /* ========== STATE VARIABLES ========== */
+  /********************************************/
+  /************* STATE VARIABLES **************/
+  /********************************************/
 
-  IERC20 public rewardsToken;
-  IERC20 public stakingToken;
+  IERC20 public eslsd;
+  IERC20 public ethx;
   uint256 public periodFinish = 0;
   uint256 public rewardRate = 0;
   uint256 public rewardsDuration;
@@ -31,17 +34,22 @@ contract BoostableFarm is IBoostableFarm, Ownable, ReentrancyGuard {
   uint256 internal _totalSupply;
   mapping(address => uint256) private _balances;
 
-  /* ========== CONSTRUCTOR ========== */
+  uint256 internal _totalBoostedSupply;
+  mapping(address => uint256) private _boostedBalances;
+
+  address public rewardBooster;
 
   constructor(
-    address _rewardsToken,
-    address _stakingToken
+    address _eslsd,
+    address _ethx
   ) Ownable() {
-    rewardsToken = IERC20(_rewardsToken);
-    stakingToken = IERC20(_stakingToken);
+    eslsd = IERC20(_eslsd);
+    ethx = IERC20(_ethx);
   }
 
-  /* ========== VIEWS ========== */
+  /********************************************/
+  /****************** VIEWS *******************/
+  /********************************************/
 
   function totalSupply() external view returns (uint256) {
     return _totalSupply;
@@ -51,43 +59,63 @@ contract BoostableFarm is IBoostableFarm, Ownable, ReentrancyGuard {
     return _balances[account];
   }
 
+  function totalBoostedSupply() external view returns (uint256) {
+    return _totalBoostedSupply;
+  }
+
+  function boostedBalanceOf(address account) external view returns (uint256) {
+    return _boostedBalances[account];
+  }
+
   function lastTimeRewardApplicable() public view returns (uint256) {
     return Math.min(block.timestamp, periodFinish);
   }
 
   function rewardPerToken() public view returns (uint256) {
-    if (_totalSupply == 0) {
+    if (_totalBoostedSupply == 0) {
       return rewardPerTokenStored;
     }
     return
       rewardPerTokenStored.add(
-        lastTimeRewardApplicable().sub(lastUpdateTime).mul(rewardRate).mul(1e18).div(_totalSupply)
+        lastTimeRewardApplicable().sub(lastUpdateTime).mul(rewardRate).mul(1e18).div(_totalBoostedSupply)
       );
   }
 
   function earned(address account) public view returns (uint256) {
-    return _balances[account].mul(rewardPerToken().sub(userRewardPerTokenPaid[account])).div(1e18).add(rewards[account]);
+    return _boostedBalances[account].mul(rewardPerToken().sub(userRewardPerTokenPaid[account])).div(1e18).add(rewards[account]);
   }
 
   function getRewardForDuration() external view returns (uint256) {
     return rewardRate.mul(rewardsDuration);
   }
 
-  /* ========== MUTATIVE FUNCTIONS ========== */
+  /********************************************/
+  /************ MUTATIVE FUNCTIONS ************/
+  /********************************************/
 
   function stake(uint256 amount) external virtual payable nonReentrant updateReward(_msgSender()) {
     require(amount > 0, "Cannot stake 0");
+    require(rewardBooster != address(0), "Reward booster not set");
+
     _totalSupply = _totalSupply.add(amount);
     _balances[_msgSender()] = _balances[_msgSender()].add(amount);
-    stakingToken.safeTransferFrom(_msgSender(), address(this), amount);
+
+    _updateBoostedBalances(_msgSender());
+
+    ethx.safeTransferFrom(_msgSender(), address(this), amount);
     emit Staked(_msgSender(), amount);
   }
 
   function withdraw(uint256 amount) public virtual nonReentrant updateReward(_msgSender()) {
     require(amount > 0, "Cannot withdraw 0");
+    require(rewardBooster != address(0), "Reward booster not set");
+
     _totalSupply = _totalSupply.sub(amount);
     _balances[_msgSender()] = _balances[_msgSender()].sub(amount);
-    stakingToken.safeTransfer(_msgSender(), amount);
+
+    _updateBoostedBalances(_msgSender());
+
+    ethx.safeTransfer(_msgSender(), amount);
     emit Withdrawn(_msgSender(), amount);
   }
 
@@ -95,7 +123,7 @@ contract BoostableFarm is IBoostableFarm, Ownable, ReentrancyGuard {
     uint256 reward = rewards[_msgSender()];
     if (reward > 0) {
       rewards[_msgSender()] = 0;
-      rewardsToken.safeTransfer(_msgSender(), reward);
+      eslsd.safeTransfer(_msgSender(), reward);
       emit RewardPaid(_msgSender(), reward);
     }
   }
@@ -105,22 +133,33 @@ contract BoostableFarm is IBoostableFarm, Ownable, ReentrancyGuard {
     getReward();
   }
 
-  function notifyStakeAmountUpdate(address user) external {
-
+  function notifyStakeAmountUpdate(address account) external nonReentrant updateReward(account) {
+    require(account != address(0), "Zero address detected");
+    _updateBoostedBalances(account);
   }
 
-  /* ========== RESTRICTED FUNCTIONS ========== */
+  function _updateBoostedBalances(address account) internal {
+    uint256 prevBoostedBalance = _boostedBalances[account];
+    uint256 boostRate = IRewardBooster(rewardBooster).getBoostRate(account, _balances[account]);
+    uint256 newBoostedBalance = _balances[account].mul(boostRate).div(1e18);
+    _boostedBalances[account] = newBoostedBalance;
+    _totalBoostedSupply = _totalBoostedSupply.sub(prevBoostedBalance).add(newBoostedBalance);
+  }
+
+  /********************************************/
+  /*********** RESTRICTED FUNCTIONS ***********/
+  /********************************************/
 
   function addRewards(uint256 rewardsAmount, uint256 rewardsDurationInDays) external onlyOwner {
     require(rewardsAmount > 0, "Reward amount should be greater than 0");
     require(rewardsDurationInDays > 0, 'Reward duration too short');
 
-    rewardsToken.safeTransferFrom(_msgSender(), address(this), rewardsAmount);
+    eslsd.safeTransferFrom(_msgSender(), address(this), rewardsAmount);
     rewardsDuration = rewardsDurationInDays.mul(1 days);
-    notifyRewardAmount(rewardsAmount);
+    _notifyRewardAmount(rewardsAmount);
   }
 
-  function notifyRewardAmount(uint256 reward) internal virtual onlyOwner updateReward(address(0)) {
+  function _notifyRewardAmount(uint256 reward) internal updateReward(address(0)) {
     if (block.timestamp >= periodFinish) {
       rewardRate = reward.div(rewardsDuration);
     } else {
@@ -133,7 +172,7 @@ contract BoostableFarm is IBoostableFarm, Ownable, ReentrancyGuard {
     // This keeps the reward rate in the right range, preventing overflows due to
     // very high values of rewardRate in the earned and rewardsPerToken functions;
     // Reward + leftover must be less than 2^256 / 10^18 to avoid overflow.
-    uint balance = rewardsToken.balanceOf(address(this));
+    uint balance = eslsd.balanceOf(address(this));
     require(rewardRate <= balance.div(rewardsDuration), "Provided reward too high");
 
     lastUpdateTime = block.timestamp;
@@ -141,7 +180,14 @@ contract BoostableFarm is IBoostableFarm, Ownable, ReentrancyGuard {
     emit RewardAdded(reward);
   }
 
-  /* ========== MODIFIERS ========== */
+  function setRewardBooster(address _rewardBooster) external onlyOwner {
+    require(_rewardBooster != address(0), "Zero address detected");
+    rewardBooster = _rewardBooster;
+  }
+
+  /********************************************/
+  /***************** MODIFIERS ****************/
+  /********************************************/
 
   modifier updateReward(address account) {
     rewardPerTokenStored = rewardPerToken();
@@ -153,7 +199,9 @@ contract BoostableFarm is IBoostableFarm, Ownable, ReentrancyGuard {
     _;
   }
 
-  /* ========== EVENTS ========== */
+  /********************************************/
+  /****************** EVENTS ******************/
+  /********************************************/
 
   event RewardAdded(uint256 reward);
   event Staked(address indexed user, uint256 amount);
