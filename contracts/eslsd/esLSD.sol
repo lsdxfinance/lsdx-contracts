@@ -10,13 +10,16 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 contract esLSD is Ownable, ReentrancyGuard, ERC20("esLSD Token", "esLSD") {
   using Address for address;
   using SafeMath for uint256;
   using SafeERC20 for IERC20;
+  using EnumerableSet for EnumerableSet.AddressSet;
 
   IERC20 public immutable lsdToken;
+  EnumerableSet.AddressSet private _whitelistAddresses; // Addresses allowed to fast vesting.
 
   uint256 public vestingPeriod = 90 days;
   uint256 public constant MIN_VESTING_PERIOD = 30 days;
@@ -25,8 +28,8 @@ contract esLSD is Ownable, ReentrancyGuard, ERC20("esLSD Token", "esLSD") {
   mapping(address => VestingInfo) public userVestings; // User's vesting instances
 
   struct VestingInfo {
-    uint256 remainingAmount;
-    uint256 lastUpdateTime;
+    uint256 amount;
+    uint256 startTime;
     uint256 endTime;
   }
 
@@ -55,19 +58,27 @@ contract esLSD is Ownable, ReentrancyGuard, ERC20("esLSD Token", "esLSD") {
   /**
    * @dev Withdraw unlocked $LSD tokens if there are ongoing redeems
    */
-  function claimUnlocked() external nonReentrant {
+  function claim() external nonReentrant {
     VestingInfo storage vestingInfo = userVestings[_msgSender()];
+    require(vestingInfo.amount > 0, "No tokens to claim");
+    require(block.timestamp >= vestingInfo.startTime, "Vesting not started");
 
-    uint256 unlockAmount = _claimableAmount(vestingInfo);
-    require(unlockAmount > 0, "No unlocked tokens to withdraw");
+    uint256 unlocked = 0;
+    if (block.timestamp >= vestingInfo.endTime) {
+      unlocked = vestingInfo.amount;
+      delete userVestings[_msgSender()];
+    }
+    else {
+      unlocked = vestingInfo.amount.mul(block.timestamp.sub(vestingInfo.startTime)).div(vestingInfo.endTime.sub(vestingInfo.startTime));
+      vestingInfo.amount = vestingInfo.amount.sub(unlocked);
+      vestingInfo.startTime = block.timestamp;
+    }
 
-    vestingInfo.remainingAmount = vestingInfo.remainingAmount.sub(unlockAmount);
-    vestingInfo.lastUpdateTime = block.timestamp;
-    vestingInfo.endTime = Math.max(block.timestamp, vestingInfo.endTime);
-
-    lsdToken.safeTransfer(_msgSender(), unlockAmount);
-    _burn(address(this), unlockAmount);
-    emit ClaimUnlocked(_msgSender(), unlockAmount);
+    if (unlocked > 0) {
+      lsdToken.safeTransfer(_msgSender(), unlocked);
+      _burn(address(this), unlocked);
+      emit Claim(_msgSender(), unlocked);
+    }
   }
 
   /**
@@ -76,20 +87,58 @@ contract esLSD is Ownable, ReentrancyGuard, ERC20("esLSD Token", "esLSD") {
    */ 
   function vest(uint256 amount) external nonReentrant {
     require(amount > 0, "Amount must be greater than 0");
+    require(amount <= balanceOf(_msgSender()), "Vest amount exceeds balance");
+
+    _transfer(_msgSender(), address(this), amount);
 
     VestingInfo storage vestingInfo = userVestings[msg.sender];
-    uint256 unlockAmount = _claimableAmount(vestingInfo);
-    if (unlockAmount > 0) {
-      lsdToken.safeTransfer(_msgSender(), unlockAmount);
-      _burn(address(this), unlockAmount);
-      emit ClaimUnlocked(_msgSender(), unlockAmount);
+    uint256 accruedAmount = amount;
+    uint256 unlocked = 0;
+    // Case 1: No ongoing vesting
+    if (vestingInfo.amount == 0) {
+
+    }
+    // Case 2: Ongoing vesting
+    else {
+      require(block.timestamp >= vestingInfo.startTime, "Vesting not started");
+      // Case 2.1: Ongoing vesting, all vested
+      if (block.timestamp >= vestingInfo.endTime) {
+        unlocked = vestingInfo.amount;
+      }
+      // Case 2.2: Ongoing vesting, partial vested
+      else {
+        unlocked = vestingInfo.amount.mul(block.timestamp.sub(vestingInfo.startTime)).div(vestingInfo.endTime.sub(vestingInfo.startTime));
+        accruedAmount = accruedAmount.add(vestingInfo.amount).sub(unlocked);
+      }
     }
 
-    vestingInfo.remainingAmount = vestingInfo.remainingAmount.sub(unlockAmount).add(amount);
-    vestingInfo.lastUpdateTime = block.timestamp;
+    if (unlocked > 0) {
+      lsdToken.safeTransfer(_msgSender(), unlocked);
+      _burn(address(this), unlocked);
+      emit Claim(_msgSender(), unlocked);
+    }
+
+    vestingInfo.amount = accruedAmount;
+    vestingInfo.startTime = block.timestamp;
     vestingInfo.endTime = block.timestamp.add(vestingPeriod);
-    emit Vest(_msgSender(), amount, vestingInfo.remainingAmount, vestingPeriod);
+    emit Vest(_msgSender(), amount, vestingInfo.amount, vestingPeriod);
   }
+
+  /**
+   * @dev Allow whitelisted addresses to flash vest $esLSD tokens
+   * @param to  Account to flash vest $LSD tokens to
+   */
+  function flashVest(uint256 amount, address to) external nonReentrant onlyWhitelistedAddress(_msgSender()) {
+    require(amount > 0, "Amount must be greater than 0");
+    require(to != address(0), "Zero address detected");
+
+    _transfer(_msgSender(), address(this), amount);
+    _burn(address(this), amount);
+    lsdToken.safeTransfer(to, amount);
+
+    emit FlashVest(_msgSender(), to, amount);
+  }
+
 
   /**************************************************/
   /****************** PUBLIC VIEWS ******************/
@@ -101,8 +150,23 @@ contract esLSD is Ownable, ReentrancyGuard, ERC20("esLSD Token", "esLSD") {
    */
   function claimableAmount(address account) public view returns (uint256) {
     require(account != address(0), "Zero address detected");
+
     VestingInfo memory vestingInfo = userVestings[account];
-    return _claimableAmount(vestingInfo);
+    if (vestingInfo.amount == 0) {
+      return 0;
+    }
+
+    require(block.timestamp >= vestingInfo.startTime, "Vesting not started");
+    if (block.timestamp >= vestingInfo.endTime) {
+      return vestingInfo.amount;
+    }
+    else {
+      return vestingInfo.amount.mul(block.timestamp.sub(vestingInfo.startTime)).div(vestingInfo.endTime.sub(vestingInfo.startTime));
+    }
+  }
+
+  function isAddressWhitelisted(address account) external view returns (bool) {
+    return _whitelistAddresses.contains(account);
   }
 
   /*******************************************************/
@@ -110,38 +174,40 @@ contract esLSD is Ownable, ReentrancyGuard, ERC20("esLSD Token", "esLSD") {
   /*******************************************************/
 
   function setVestingPeriod(uint256 _period) external onlyOwner nonReentrant {
-    require(_period >= MIN_VESTING_PERIOD && _period <= MAX_VESTING_PERIOD, "Invalid duration");
+    require(_period >= MIN_VESTING_PERIOD && _period <= MAX_VESTING_PERIOD, "Invalid period");
     require(_period != vestingPeriod, "Same period");
 
     uint256 previousVestPeriod = vestingPeriod;
     vestingPeriod = _period;
-    emit UpdateVestingDuration(previousVestPeriod, vestingPeriod);
+    emit UpdateVestingPeriod(previousVestPeriod, vestingPeriod);
   }
 
-  /********************************************************/
-  /****************** INTERNAL FUNCTIONS ******************/
-  /********************************************************/
+  function setWhitelistAddress(address account, bool whitelisted) external nonReentrant onlyOwner {
+    require(account != address(0), "Zero address detected");
 
-  function _claimableAmount(VestingInfo memory vestingInfo) internal view returns (uint256) {
-    if (vestingInfo.remainingAmount == 0) {
-      return 0;
-    }
-    require(vestingInfo.lastUpdateTime <= block.timestamp, "Vesting is not started yet, should not happen");
+    if(whitelisted) _whitelistAddresses.add(account);
+    else _whitelistAddresses.remove(account);
 
-    uint256 endTime = Math.min(vestingInfo.endTime, block.timestamp);
-    uint256 _vestingPeriod = endTime.sub(vestingInfo.lastUpdateTime);
-    if (_vestingPeriod == 0) {
-      return vestingInfo.remainingAmount;
-    }
-    return vestingInfo.remainingAmount.mul(endTime.sub(vestingInfo.lastUpdateTime)).div(_vestingPeriod);
+    emit UpdateWhitelistAddress(account, whitelisted);
+  }
+
+  /***********************************************/
+  /****************** MODIFIERS ******************/
+  /***********************************************/
+
+  modifier onlyWhitelistedAddress(address userAddress) {
+    require(_whitelistAddresses.contains(userAddress), "Address is not whitelisted");
+    _;
   }
 
   /********************************************/
   /****************** EVENTS ******************/
   /********************************************/
 
-  event UpdateVestingDuration(uint256 previousDuration, uint256 duration);
+  event UpdateVestingPeriod(uint256 previousDuration, uint256 period);
+  event UpdateWhitelistAddress(address account, bool whitelisted);
   event Escrow(address indexed userAddress, uint256 amount);
-  event ClaimUnlocked(address indexed userAddress, uint256 amount);
-  event Vest(address indexed userAddress, uint256 amount, uint256 accruedAmount, uint256 duration);
+  event Claim(address indexed userAddress, uint256 amount);
+  event Vest(address indexed userAddress, uint256 amount, uint256 accruedAmount, uint256 period);
+  event FlashVest(address indexed fromAddress, address toAddress, uint256 amount);
 }

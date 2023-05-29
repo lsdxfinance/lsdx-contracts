@@ -27,6 +27,7 @@ contract BoostableFarm is IBoostableFarm, Ownable, ReentrancyGuard {
   uint256 public rewardsDuration;
   uint256 public lastUpdateTime;
   uint256 public rewardPerTokenStored;
+  uint256 public constant PRECISION = 1e18;
 
   mapping(address => uint256) public userRewardPerTokenPaid;
   mapping(address => uint256) public rewards;
@@ -77,12 +78,12 @@ contract BoostableFarm is IBoostableFarm, Ownable, ReentrancyGuard {
     }
     return
       rewardPerTokenStored.add(
-        lastTimeRewardApplicable().sub(lastUpdateTime).mul(rewardRate).mul(1e18).div(_totalBoostedSupply)
+        lastTimeRewardApplicable().sub(lastUpdateTime).mul(rewardRate).mul(PRECISION).div(_totalBoostedSupply)
       );
   }
 
   function earned(address account) public view returns (uint256) {
-    return _boostedBalances[account].mul(rewardPerToken().sub(userRewardPerTokenPaid[account])).div(1e18).add(rewards[account]);
+    return _boostedBalances[account].mul(rewardPerToken().sub(userRewardPerTokenPaid[account])).div(PRECISION).add(rewards[account]);
   }
 
   function getRewardForDuration() external view returns (uint256) {
@@ -141,7 +142,7 @@ contract BoostableFarm is IBoostableFarm, Ownable, ReentrancyGuard {
   function _updateBoostedBalances(address account) internal {
     uint256 prevBoostedBalance = _boostedBalances[account];
     uint256 boostRate = IRewardBooster(rewardBooster).getBoostRate(account, _balances[account]);
-    uint256 newBoostedBalance = _balances[account].mul(boostRate).div(1e18);
+    uint256 newBoostedBalance = _balances[account].mul(boostRate).div(PRECISION);
     _boostedBalances[account] = newBoostedBalance;
     _totalBoostedSupply = _totalBoostedSupply.sub(prevBoostedBalance).add(newBoostedBalance);
   }

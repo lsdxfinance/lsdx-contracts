@@ -11,7 +11,8 @@ import {
   PlainStakingPool__factory,
   FraxStakingPool__factory,
   VeLSD__factory,
-  LsdxFarmFactory__factory
+  LsdxFarmFactory__factory,
+  EsLSD__factory
 } from '../typechain';
 
 const { provider, BigNumber } = ethers;
@@ -67,7 +68,11 @@ export async function deployLsdxContractsFixture() {
   const veLSDContract = await VeLSD.deploy();
   const veLSD = VeLSD__factory.connect(veLSDContract.address, provider);
 
-  return { lsdCoin, stakingPoolFactory, lsdxFarmFactory, v2PlainStakingPool, v2FraxStakingPool, weth, stETH, frxETH, sfrxETH, erc20, veLSD, Alice, Bob, Caro, Dave };
+  const EsLSD = await ethers.getContractFactory('esLSD');
+  const EsLSDContract = await EsLSD.deploy(lsdCoin.address);
+  const esLSD = EsLSD__factory.connect(EsLSDContract.address, provider);
+
+  return { lsdCoin, stakingPoolFactory, lsdxFarmFactory, v2PlainStakingPool, v2FraxStakingPool, weth, stETH, frxETH, sfrxETH, erc20, veLSD, esLSD, Alice, Bob, Caro, Dave };
 }
 
 export function expandTo18Decimals(n: number) {
