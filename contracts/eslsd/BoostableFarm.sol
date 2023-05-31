@@ -178,7 +178,7 @@ contract BoostableFarm is IBoostableFarm, Ownable, ReentrancyGuard {
 
     lastUpdateTime = block.timestamp;
     periodFinish = block.timestamp.add(rewardsDuration);
-    emit RewardAdded(reward);
+    emit RewardAdded(reward, rewardsDuration);
   }
 
   function setRewardBooster(address _rewardBooster) external onlyOwner {
@@ -204,7 +204,7 @@ contract BoostableFarm is IBoostableFarm, Ownable, ReentrancyGuard {
   /****************** EVENTS ******************/
   /********************************************/
 
-  event RewardAdded(uint256 reward);
+  event RewardAdded(uint256 reward, uint256 rewardDuration);
   event Staked(address indexed user, uint256 amount);
   event Withdrawn(address indexed user, uint256 amount);
   event RewardPaid(address indexed user, uint256 reward);

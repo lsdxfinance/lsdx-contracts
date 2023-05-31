@@ -4,14 +4,14 @@ import { expect } from 'chai';
 import { anyValue } from '@nomicfoundation/hardhat-chai-matchers/withArgs';
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 import { loadFixture } from '@nomicfoundation/hardhat-network-helpers';
-import { ONE_DAY_IN_SECS, deployLsdxContractsFixture, expandTo18Decimals, expectBigNumberEquals } from '../utils';
+import { ONE_DAY_IN_SECS, deployLsdxV2ContractsFixture, expandTo18Decimals, expectBigNumberEquals } from '../utils';
 
 const { provider } = ethers;
 
 describe('esLSD Token', () => {
 
   it('Basic functions work', async () => {
-    const { lsdCoin, esLSD, Alice, Bob } = await loadFixture(deployLsdxContractsFixture);
+    const { lsdCoin, esLSD, Alice, Bob } = await loadFixture(deployLsdxV2ContractsFixture);
 
     // Bob $esLSD: 10_000
     const esBalance = expandTo18Decimals(10_000);
@@ -96,7 +96,7 @@ describe('esLSD Token', () => {
 
   it('Vest Duration Could be updated', async () => {
 
-    const { lsdCoin, esLSD, Alice, Bob } = await loadFixture(deployLsdxContractsFixture);
+    const { lsdCoin, esLSD, Alice, Bob } = await loadFixture(deployLsdxV2ContractsFixture);
 
     // Default to 90 days
     const vestPeirod90days = ONE_DAY_IN_SECS * 90;
@@ -144,6 +144,33 @@ describe('esLSD Token', () => {
     vestTimestamp = (await provider.getBlock(trans.blockNumber as number)).timestamp;
     vestInfo = await esLSD.userVestings(Bob.address);
     expect(vestInfo.endTime).to.equal(vestTimestamp + vestPeirod60days);
+  });
+
+  it('Zap Vest', async () => {
+
+    const { lsdCoin, esLSD, Alice, Bob, Caro } = await loadFixture(deployLsdxV2ContractsFixture);
+
+    // Bob: 10_000
+    const esBalance = expandTo18Decimals(10_000);
+    await expect(lsdCoin.connect(Alice).mint(Bob.address, esBalance)).not.to.be.reverted;
+    await expect(lsdCoin.connect(Bob).approve(esLSD.address, esBalance)).not.to.be.reverted;
+    await expect(esLSD.connect(Bob).escrow(esBalance)).not.to.be.rejected;
+
+    // Bob could not zap vest
+    const vestAmount = expandTo18Decimals(1000);
+    await expect(esLSD.connect(Bob).zapVest(vestAmount, Caro.address)).to.be.rejectedWith(/Not zap delegator/);
+
+    // Set Bob as zap delegator. This is only for testing.
+    await expect(esLSD.connect(Bob).setZapDelegator(Bob.address)).to.be.rejectedWith(/Ownable: caller is not the owner/);
+    await expect(await esLSD.connect(Alice).setZapDelegator(Bob.address))
+      .to.emit(esLSD, 'UpdateZapDelegator').withArgs(ethers.constants.AddressZero, Bob.address);
+
+    // Now Bob could zap vest
+    await expect(await esLSD.connect(Bob).zapVest(vestAmount, Caro.address))
+      .to.emit(esLSD, 'Transfer').withArgs(Bob.address, esLSD.address, vestAmount)
+      .to.emit(esLSD, 'Transfer').withArgs(esLSD.address, ethers.constants.AddressZero, vestAmount)
+      .to.emit(lsdCoin, 'Transfer').withArgs(esLSD.address, Caro.address, vestAmount)
+      .to.emit(esLSD, 'ZapVest').withArgs(Bob.address, Caro.address, vestAmount);
   });
 
 });

@@ -10,16 +10,15 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
-import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+
 
 contract esLSD is Ownable, ReentrancyGuard, ERC20("esLSD Token", "esLSD") {
   using Address for address;
   using SafeMath for uint256;
   using SafeERC20 for IERC20;
-  using EnumerableSet for EnumerableSet.AddressSet;
 
   IERC20 public immutable lsdToken;
-  EnumerableSet.AddressSet private _whitelistAddresses; // Addresses allowed to fast vesting.
+  address public zapDelegator;
 
   uint256 public vestingPeriod = 90 days;
   uint256 public constant MIN_VESTING_PERIOD = 30 days;
@@ -125,10 +124,10 @@ contract esLSD is Ownable, ReentrancyGuard, ERC20("esLSD Token", "esLSD") {
   }
 
   /**
-   * @dev Allow whitelisted addresses to flash vest $esLSD tokens
+   * @dev Allow zap delegator to flash vest $esLSD tokens
    * @param to  Account to flash vest $LSD tokens to
    */
-  function flashVest(uint256 amount, address to) external nonReentrant onlyWhitelistedAddress(_msgSender()) {
+  function zapVest(uint256 amount, address to) external nonReentrant onlyZapDelegator(_msgSender()) {
     require(amount > 0, "Amount must be greater than 0");
     require(to != address(0), "Zero address detected");
 
@@ -136,7 +135,7 @@ contract esLSD is Ownable, ReentrancyGuard, ERC20("esLSD Token", "esLSD") {
     _burn(address(this), amount);
     lsdToken.safeTransfer(to, amount);
 
-    emit FlashVest(_msgSender(), to, amount);
+    emit ZapVest(_msgSender(), to, amount);
   }
 
 
@@ -165,10 +164,6 @@ contract esLSD is Ownable, ReentrancyGuard, ERC20("esLSD Token", "esLSD") {
     }
   }
 
-  function isAddressWhitelisted(address account) external view returns (bool) {
-    return _whitelistAddresses.contains(account);
-  }
-
   /*******************************************************/
   /****************** RESTRICTED FUNCTIONS ***************/
   /*******************************************************/
@@ -182,21 +177,21 @@ contract esLSD is Ownable, ReentrancyGuard, ERC20("esLSD Token", "esLSD") {
     emit UpdateVestingPeriod(previousVestPeriod, vestingPeriod);
   }
 
-  function setWhitelistAddress(address account, bool whitelisted) external nonReentrant onlyOwner {
-    require(account != address(0), "Zero address detected");
+  function setZapDelegator(address _zapDelegator) external nonReentrant onlyOwner {
+    require(_zapDelegator != address(0), "Zero address detected");
+    require(zapDelegator != _zapDelegator, "Same zap delegator");
 
-    if(whitelisted) _whitelistAddresses.add(account);
-    else _whitelistAddresses.remove(account);
-
-    emit UpdateWhitelistAddress(account, whitelisted);
+    address previousDelegator = zapDelegator;
+    zapDelegator = _zapDelegator;
+    emit UpdateZapDelegator(previousDelegator, zapDelegator);
   }
 
   /***********************************************/
   /****************** MODIFIERS ******************/
   /***********************************************/
 
-  modifier onlyWhitelistedAddress(address userAddress) {
-    require(_whitelistAddresses.contains(userAddress), "Address is not whitelisted");
+  modifier onlyZapDelegator(address _address) {
+    require(zapDelegator == _address, "Not zap delegator");
     _;
   }
 
@@ -205,9 +200,9 @@ contract esLSD is Ownable, ReentrancyGuard, ERC20("esLSD Token", "esLSD") {
   /********************************************/
 
   event UpdateVestingPeriod(uint256 previousDuration, uint256 period);
-  event UpdateWhitelistAddress(address account, bool whitelisted);
+  event UpdateZapDelegator(address previousDelegator, address delegator);
   event Escrow(address indexed userAddress, uint256 amount);
   event Claim(address indexed userAddress, uint256 amount);
   event Vest(address indexed userAddress, uint256 amount, uint256 accruedAmount, uint256 period);
-  event FlashVest(address indexed fromAddress, address toAddress, uint256 amount);
+  event ZapVest(address indexed fromAddress, address toAddress, uint256 amount);
 }

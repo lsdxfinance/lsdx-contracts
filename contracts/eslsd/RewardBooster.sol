@@ -12,10 +12,11 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "./interfaces/IBoostableFarm.sol";
 import "./interfaces/IesLSD.sol";
 import "./interfaces/IRewardBooster.sol";
+import "./interfaces/IZapDelegator.sol";
 import "../interfaces/IETHxPool.sol";
 import "../interfaces/IUniswapV2Pair.sol";
 
-contract RewardBooster is IRewardBooster, Ownable, ReentrancyGuard {
+contract RewardBooster is IRewardBooster, IZapDelegator, Ownable, ReentrancyGuard {
   using SafeMath for uint256;
   using SafeERC20 for IERC20;
 
@@ -177,7 +178,7 @@ contract RewardBooster is IRewardBooster, Ownable, ReentrancyGuard {
         unstakeableAmount = unstakeableAmount.add(stakeInfo.amount);
         _deleteZapStakeInfo(index);
         IERC20(address(esLSD)).approve(address(esLSD), stakeInfo.amount);
-        esLSD.flashVest(stakeInfo.amount, _msgSender());
+        esLSD.zapVest(stakeInfo.amount, _msgSender());
         emit ZapUnstake(_msgSender(), stakeInfo.amount);
       }
       else {
