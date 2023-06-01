@@ -134,7 +134,7 @@ contract BoostableFarm is IBoostableFarm, Ownable, ReentrancyGuard {
     getReward();
   }
 
-  function notifyStakeAmountUpdate(address account) external nonReentrant updateReward(account) {
+  function updateBoostRate(address account) external nonReentrant updateReward(account) {
     require(account != address(0), "Zero address detected");
     _updateBoostedBalances(account);
   }

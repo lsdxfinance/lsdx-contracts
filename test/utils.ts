@@ -112,7 +112,7 @@ export async function deployLsdxV2ContractsFixture() {
   const UniswapV2Router02Contract = await UniswapV2Router02.deploy(uniswapV2Factory.address, weth.address);
   const uniswapV2Router02 = UniswapV2Router02__factory.connect(UniswapV2Router02Contract.address, provider);
   const uniPairEthAmount = ethers.utils.parseEther('1');
-  const uniPairLsdAmount = expandTo18Decimals(1_000_000);
+  const uniPairLsdAmount = ethers.utils.parseUnits('1000000', 18);
   const uniPairDeadline = (await time.latest()) + ONE_DAY_IN_SECS;
   await expect(lsdCoin.connect(Alice).mint(Alice.address, uniPairLsdAmount)).not.to.be.reverted;
   await expect(lsdCoin.connect(Alice).approve(uniswapV2Router02.address, uniPairLsdAmount)).not.to.be.reverted;
@@ -136,6 +136,9 @@ export async function deployLsdxV2ContractsFixture() {
   const rewardBooster = RewardBooster__factory.connect(RewardBoosterContract.address, provider);
 
   trans = await boostableFarm.connect(Alice).setRewardBooster(rewardBooster.address);
+  await trans.wait();
+
+  trans = await esLSD.connect(Alice).setZapDelegator(rewardBooster.address);
   await trans.wait();
 
   return { lsdCoin, esLSD, weth, ethx, lsdEthPair, ethxPool, boostableFarm, rewardBooster, Alice, Bob, Caro, Dave };

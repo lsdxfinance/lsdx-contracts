@@ -2,5 +2,5 @@
 pragma solidity ^0.8.9;
 
 interface IBoostableFarm {
-  function notifyStakeAmountUpdate(address account) external;
+  function updateBoostRate(address account) external;
 }
