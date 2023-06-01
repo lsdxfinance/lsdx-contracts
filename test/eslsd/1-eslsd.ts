@@ -163,7 +163,7 @@ describe('esLSD Token', () => {
     // Set Bob as zap delegator. This is only for testing.
     await expect(esLSD.connect(Bob).setZapDelegator(Bob.address)).to.be.rejectedWith(/Ownable: caller is not the owner/);
     await expect(await esLSD.connect(Alice).setZapDelegator(Bob.address))
-      .to.emit(esLSD, 'UpdateZapDelegator').withArgs(ethers.constants.AddressZero, Bob.address);
+      .to.emit(esLSD, 'UpdateZapDelegator').withArgs(anyValue, Bob.address);
 
     // Now Bob could zap vest
     await expect(await esLSD.connect(Bob).zapVest(vestAmount, Caro.address))

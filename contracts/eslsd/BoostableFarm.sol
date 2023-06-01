@@ -127,11 +127,7 @@ contract BoostableFarm is IBoostableFarm, Ownable, ReentrancyGuard {
       eslsd.safeTransfer(_msgSender(), reward);
       emit RewardPaid(_msgSender(), reward);
     }
-  }
-
-  function exit() external {
-    withdraw(_balances[_msgSender()]);
-    getReward();
+    _updateBoostedBalances(_msgSender());
   }
 
   function updateBoostRate(address account) external nonReentrant updateReward(account) {
