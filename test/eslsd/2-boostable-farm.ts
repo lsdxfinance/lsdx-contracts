@@ -8,8 +8,6 @@ import { ONE_DAY_IN_SECS, deployLsdxV2ContractsFixture, expandTo18Decimals, expe
 
 const { provider } = ethers;
 
-const dayjs = require('dayjs');
-
 describe('Boostable Farm', () => {
 
   it('Basic farming works', async () => {
@@ -108,7 +106,7 @@ describe('Boostable Farm', () => {
 
   it('Reward booster works', async () => {
 
-    const { lsdCoin, esLSD, lsdEthPair, ethxPool, rewardBooster, Alice, Bob } = await loadFixture(deployLsdxV2ContractsFixture);
+    const { lsdCoin, esLSD, lsdEthPair, ethxPool, rewardBooster, Alice, Bob, Caro } = await loadFixture(deployLsdxV2ContractsFixture);
 
     const bobStakes = await rewardBooster.getStakeAmount(Bob.address);
     expect(bobStakes[0].toNumber()).to.equal(0);
@@ -246,6 +244,112 @@ describe('Boostable Farm', () => {
 
     // Expected boost rate: 1
     expect(await rewardBooster.getBoostRate(Bob.address, ethxAmount)).to.equal(baseRate);
+
+    // Caro could stake at most 10 sums    
+    const caroStakeAmount = expandTo18Decimals(100);
+    await expect(lsdEthPair.connect(Alice).transfer(Caro.address, caroStakeAmount)).not.to.be.reverted;
+    await expect(lsdEthPair.connect(Caro).approve(rewardBooster.address, caroStakeAmount)).not.to.be.reverted;
+    await expect(rewardBooster.connect(Caro).stake(expandTo18Decimals(1))).not.to.be.reverted;
+    await expect(rewardBooster.connect(Caro).stake(expandTo18Decimals(2))).not.to.be.reverted;
+    await expect(rewardBooster.connect(Caro).stake(expandTo18Decimals(3))).not.to.be.reverted;
+    await expect(rewardBooster.connect(Caro).stake(expandTo18Decimals(4))).not.to.be.reverted;
+    await expect(rewardBooster.connect(Caro).stake(expandTo18Decimals(5))).not.to.be.reverted;
+    await expect(rewardBooster.connect(Caro).stake(expandTo18Decimals(6))).not.to.be.reverted;
+    await expect(rewardBooster.connect(Caro).stake(expandTo18Decimals(7))).not.to.be.reverted;
+    await expect(rewardBooster.connect(Caro).stake(expandTo18Decimals(8))).not.to.be.reverted;
+    await expect(rewardBooster.connect(Caro).stake(expandTo18Decimals(9))).not.to.be.reverted;
+    await expect(rewardBooster.connect(Caro).stake(expandTo18Decimals(10))).not.to.be.reverted;
+    await expect(rewardBooster.connect(Caro).stake(expandTo18Decimals(11))).to.be.rejectedWith(/Too many stakes/);
+
+    // Caro could zap stake at most 10 sums  
+    const caroESLSDBalance = expandTo18Decimals(10_000);
+    await expect(lsdCoin.connect(Alice).mint(Caro.address, caroESLSDBalance)).not.to.be.reverted;
+    await expect(lsdCoin.connect(Caro).approve(esLSD.address, caroESLSDBalance)).not.to.be.reverted;
+    await expect(esLSD.connect(Caro).escrow(caroESLSDBalance)).not.to.be.reverted;
+    await expect(esLSD.connect(Caro).approve(rewardBooster.address, caroESLSDBalance)).not.to.be.reverted;
+    await expect(rewardBooster.connect(Caro).zapStake(expandTo18Decimals(1))).not.to.be.reverted;
+    await expect(rewardBooster.connect(Caro).zapStake(expandTo18Decimals(2))).not.to.be.reverted;
+    await expect(rewardBooster.connect(Caro).zapStake(expandTo18Decimals(3))).not.to.be.reverted;
+    await expect(rewardBooster.connect(Caro).zapStake(expandTo18Decimals(4))).not.to.be.reverted;
+    await expect(rewardBooster.connect(Caro).zapStake(expandTo18Decimals(5))).not.to.be.reverted;
+    await expect(rewardBooster.connect(Caro).zapStake(expandTo18Decimals(6))).not.to.be.reverted;
+    await expect(rewardBooster.connect(Caro).zapStake(expandTo18Decimals(7))).not.to.be.reverted;
+    await expect(rewardBooster.connect(Caro).zapStake(expandTo18Decimals(8))).not.to.be.reverted;
+    await expect(rewardBooster.connect(Caro).zapStake(expandTo18Decimals(9))).not.to.be.reverted;
+    await expect(rewardBooster.connect(Caro).zapStake(expandTo18Decimals(10))).not.to.be.reverted;
+    await expect(rewardBooster.connect(Caro).zapStake(expandTo18Decimals(11))).to.be.rejectedWith(/Too many stakes/);
+
+    // Unstake all
+    await expect(rewardBooster.connect(Caro).unstake()).to.be.rejectedWith(/No tokens to unstake/);
+    await expect(rewardBooster.connect(Caro).zapUnstake()).to.be.rejectedWith(/No tokens to unstake/);
+    await time.increase((await rewardBooster.stakePeriod()).toNumber());
+    await expect(rewardBooster.connect(Caro).unstake())
+      .to.emit(lsdEthPair, 'Transfer').withArgs(rewardBooster.address, Caro.address, expandTo18Decimals(1))
+      .to.emit(lsdEthPair, 'Transfer').withArgs(rewardBooster.address, Caro.address, expandTo18Decimals(2))
+      .to.emit(lsdEthPair, 'Transfer').withArgs(rewardBooster.address, Caro.address, expandTo18Decimals(3))
+      .to.emit(lsdEthPair, 'Transfer').withArgs(rewardBooster.address, Caro.address, expandTo18Decimals(4))
+      .to.emit(lsdEthPair, 'Transfer').withArgs(rewardBooster.address, Caro.address, expandTo18Decimals(5))
+      .to.emit(lsdEthPair, 'Transfer').withArgs(rewardBooster.address, Caro.address, expandTo18Decimals(6))
+      .to.emit(lsdEthPair, 'Transfer').withArgs(rewardBooster.address, Caro.address, expandTo18Decimals(7))
+      .to.emit(lsdEthPair, 'Transfer').withArgs(rewardBooster.address, Caro.address, expandTo18Decimals(8))
+      .to.emit(lsdEthPair, 'Transfer').withArgs(rewardBooster.address, Caro.address, expandTo18Decimals(9))
+      .to.emit(lsdEthPair, 'Transfer').withArgs(rewardBooster.address, Caro.address, expandTo18Decimals(10))
+      .to.emit(rewardBooster, 'Unstake').withArgs(Caro.address, expandTo18Decimals(1))
+      .to.emit(rewardBooster, 'Unstake').withArgs(Caro.address, expandTo18Decimals(2))
+      .to.emit(rewardBooster, 'Unstake').withArgs(Caro.address, expandTo18Decimals(3))
+      .to.emit(rewardBooster, 'Unstake').withArgs(Caro.address, expandTo18Decimals(4))
+      .to.emit(rewardBooster, 'Unstake').withArgs(Caro.address, expandTo18Decimals(5))
+      .to.emit(rewardBooster, 'Unstake').withArgs(Caro.address, expandTo18Decimals(6))
+      .to.emit(rewardBooster, 'Unstake').withArgs(Caro.address, expandTo18Decimals(7))
+      .to.emit(rewardBooster, 'Unstake').withArgs(Caro.address, expandTo18Decimals(8))
+      .to.emit(rewardBooster, 'Unstake').withArgs(Caro.address, expandTo18Decimals(9))
+      .to.emit(rewardBooster, 'Unstake').withArgs(Caro.address, expandTo18Decimals(10));
+
+    await expect(rewardBooster.connect(Caro).zapUnstake())
+      .to.emit(esLSD, 'Transfer').withArgs(rewardBooster.address, esLSD.address, expandTo18Decimals(1))
+      .to.emit(esLSD, 'Transfer').withArgs(esLSD.address, ethers.constants.AddressZero, expandTo18Decimals(1))
+      .to.emit(lsdCoin, 'Transfer').withArgs(esLSD.address, Caro.address, expandTo18Decimals(1))
+      .to.emit(esLSD, 'Transfer').withArgs(rewardBooster.address, esLSD.address, expandTo18Decimals(2))
+      .to.emit(esLSD, 'Transfer').withArgs(esLSD.address, ethers.constants.AddressZero, expandTo18Decimals(2))
+      .to.emit(lsdCoin, 'Transfer').withArgs(esLSD.address, Caro.address, expandTo18Decimals(2))
+      .to.emit(esLSD, 'Transfer').withArgs(rewardBooster.address, esLSD.address, expandTo18Decimals(3))
+      .to.emit(esLSD, 'Transfer').withArgs(esLSD.address, ethers.constants.AddressZero, expandTo18Decimals(3))
+      .to.emit(lsdCoin, 'Transfer').withArgs(esLSD.address, Caro.address, expandTo18Decimals(3))
+      .to.emit(esLSD, 'Transfer').withArgs(rewardBooster.address, esLSD.address, expandTo18Decimals(4))
+      .to.emit(esLSD, 'Transfer').withArgs(esLSD.address, ethers.constants.AddressZero, expandTo18Decimals(4))
+      .to.emit(lsdCoin, 'Transfer').withArgs(esLSD.address, Caro.address, expandTo18Decimals(4))
+      .to.emit(esLSD, 'Transfer').withArgs(rewardBooster.address, esLSD.address, expandTo18Decimals(5))
+      .to.emit(esLSD, 'Transfer').withArgs(esLSD.address, ethers.constants.AddressZero, expandTo18Decimals(5))
+      .to.emit(lsdCoin, 'Transfer').withArgs(esLSD.address, Caro.address, expandTo18Decimals(5))
+      .to.emit(esLSD, 'Transfer').withArgs(rewardBooster.address, esLSD.address, expandTo18Decimals(6))
+      .to.emit(esLSD, 'Transfer').withArgs(esLSD.address, ethers.constants.AddressZero, expandTo18Decimals(6))
+      .to.emit(lsdCoin, 'Transfer').withArgs(esLSD.address, Caro.address, expandTo18Decimals(6))
+      .to.emit(esLSD, 'Transfer').withArgs(rewardBooster.address, esLSD.address, expandTo18Decimals(7))
+      .to.emit(esLSD, 'Transfer').withArgs(esLSD.address, ethers.constants.AddressZero, expandTo18Decimals(7))
+      .to.emit(lsdCoin, 'Transfer').withArgs(esLSD.address, Caro.address, expandTo18Decimals(7))
+      .to.emit(esLSD, 'Transfer').withArgs(rewardBooster.address, esLSD.address, expandTo18Decimals(8))
+      .to.emit(esLSD, 'Transfer').withArgs(esLSD.address, ethers.constants.AddressZero, expandTo18Decimals(8))
+      .to.emit(lsdCoin, 'Transfer').withArgs(esLSD.address, Caro.address, expandTo18Decimals(8))
+      .to.emit(esLSD, 'Transfer').withArgs(rewardBooster.address, esLSD.address, expandTo18Decimals(9))
+      .to.emit(esLSD, 'Transfer').withArgs(esLSD.address, ethers.constants.AddressZero, expandTo18Decimals(9))
+      .to.emit(lsdCoin, 'Transfer').withArgs(esLSD.address, Caro.address, expandTo18Decimals(9))
+      .to.emit(esLSD, 'Transfer').withArgs(rewardBooster.address, esLSD.address, expandTo18Decimals(10))
+      .to.emit(esLSD, 'Transfer').withArgs(esLSD.address, ethers.constants.AddressZero, expandTo18Decimals(10))
+      .to.emit(lsdCoin, 'Transfer').withArgs(esLSD.address, Caro.address, expandTo18Decimals(10))
+      .to.emit(rewardBooster, 'ZapUnstake').withArgs(Caro.address, expandTo18Decimals(1))
+      .to.emit(rewardBooster, 'ZapUnstake').withArgs(Caro.address, expandTo18Decimals(2))
+      .to.emit(rewardBooster, 'ZapUnstake').withArgs(Caro.address, expandTo18Decimals(3))
+      .to.emit(rewardBooster, 'ZapUnstake').withArgs(Caro.address, expandTo18Decimals(4))
+      .to.emit(rewardBooster, 'ZapUnstake').withArgs(Caro.address, expandTo18Decimals(5))
+      .to.emit(rewardBooster, 'ZapUnstake').withArgs(Caro.address, expandTo18Decimals(6))
+      .to.emit(rewardBooster, 'ZapUnstake').withArgs(Caro.address, expandTo18Decimals(7))
+      .to.emit(rewardBooster, 'ZapUnstake').withArgs(Caro.address, expandTo18Decimals(8))
+      .to.emit(rewardBooster, 'ZapUnstake').withArgs(Caro.address, expandTo18Decimals(9))
+      .to.emit(rewardBooster, 'ZapUnstake').withArgs(Caro.address, expandTo18Decimals(10));
+
+    // Stake are cleared. Able to stake again.
+    await expect(rewardBooster.connect(Caro).stake(expandTo18Decimals(1))).not.to.be.reverted;
+    await expect(rewardBooster.connect(Caro).zapStake(expandTo18Decimals(1))).not.to.be.reverted;
   });
 
   it('Boosted farming works', async () => {
