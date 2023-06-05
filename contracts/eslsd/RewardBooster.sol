@@ -9,12 +9,12 @@ import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import '@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol';
 import "./interfaces/IBoostableFarm.sol";
 import "./interfaces/IesLSD.sol";
 import "./interfaces/IRewardBooster.sol";
 import "./interfaces/IZapDelegator.sol";
 import "../interfaces/IETHxPool.sol";
-import "../interfaces/IUniswapV2Pair.sol";
 
 contract RewardBooster is IRewardBooster, IZapDelegator, Ownable, ReentrancyGuard {
   using SafeMath for uint256;
