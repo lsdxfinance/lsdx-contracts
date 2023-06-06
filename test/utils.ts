@@ -19,7 +19,8 @@ import {
   UniswapV2Pair__factory,
   StableSwapETHxPool__factory,
   BoostableFarm__factory,
-  RewardBooster__factory
+  RewardBooster__factory,
+  UniswapV2PairOracle__factory
 } from '../typechain';
 
 const { provider, BigNumber } = ethers;
@@ -135,13 +136,15 @@ export async function deployLsdxV2ContractsFixture() {
   const RewardBoosterContract = await RewardBooster.deploy(lsdEthPair.address, ethxPool.address, boostableFarm.address, esLSD.address);
   const rewardBooster = RewardBooster__factory.connect(RewardBoosterContract.address, provider);
 
+  const lsdEthPairOracle = UniswapV2PairOracle__factory.connect(await rewardBooster.lsdEthOracle(), provider);
+
   trans = await boostableFarm.connect(Alice).setRewardBooster(rewardBooster.address);
   await trans.wait();
 
   trans = await esLSD.connect(Alice).setZapDelegator(rewardBooster.address);
   await trans.wait();
 
-  return { lsdCoin, esLSD, weth, ethx, lsdEthPair, ethxPool, boostableFarm, rewardBooster, Alice, Bob, Caro, Dave };
+  return { lsdCoin, esLSD, weth, ethx, lsdEthPair, ethxPool, boostableFarm, rewardBooster, lsdEthPairOracle, Alice, Bob, Caro, Dave };
 }
 
 export function expandTo18Decimals(n: number) {

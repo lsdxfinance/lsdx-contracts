@@ -132,6 +132,7 @@ contract BoostableFarm is IBoostableFarm, Ownable, ReentrancyGuard {
 
   function updateBoostRate(address account) external nonReentrant updateReward(account) {
     require(account != address(0), "Zero address detected");
+    IRewardBooster(rewardBooster).tryUpdateOracle();
     _updateBoostedBalances(account);
   }
 

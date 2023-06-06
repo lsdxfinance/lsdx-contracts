@@ -10,6 +10,7 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import '@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol';
+import "./UniswapV2PairOracle.sol";
 import "./interfaces/IBoostableFarm.sol";
 import "./interfaces/IesLSD.sol";
 import "./interfaces/IRewardBooster.sol";
@@ -21,6 +22,7 @@ contract RewardBooster is IRewardBooster, IZapDelegator, Ownable, ReentrancyGuar
   using SafeERC20 for IERC20;
 
   IUniswapV2Pair public lsdEthPair;
+  UniswapV2PairOracle public lsdEthOracle;
   IETHxPool public ethxPool;
   IBoostableFarm public farm;
   IesLSD public esLSD;
@@ -56,6 +58,7 @@ contract RewardBooster is IRewardBooster, IZapDelegator, Ownable, ReentrancyGuar
     require(_esLSD != address(0), "Zero address detected");
 
     lsdEthPair = IUniswapV2Pair(_lsdEthPair);
+    lsdEthOracle = new UniswapV2PairOracle(_lsdEthPair);
     ethxPool = IETHxPool(_ethxPool);
     farm = IBoostableFarm(_farm);
     esLSD = IesLSD(_esLSD);
@@ -100,11 +103,14 @@ contract RewardBooster is IRewardBooster, IZapDelegator, Ownable, ReentrancyGuar
 
   function getBoostRate(address account, uint256 ethxAmount) external view returns (uint256) {
     (, uint256 lpAmount) = getStakeAmount(account);
-    (uint256 ethReserve, uint256 lsdReserve, ) = lsdEthPair.getReserves();
+    (uint256 ethReserve, , ) = lsdEthPair.getReserves();
     uint256 lpAmountETHValue = lpAmount.mul(PRECISION).mul(ethReserve).div(lsdEthPair.totalSupply()).mul(2);
 
     (, uint256 zapStakeAmount) = getZapStakeAmount(account);
-    uint256 zapStakeAmountETHValue = ethReserve.mul(PRECISION).div(lsdReserve).mul(zapStakeAmount);
+    uint256 zapStakeAmountETHValue = 0;
+    if (zapStakeAmount > 0) {
+      zapStakeAmountETHValue = lsdEthOracle.consult(lsdEthPair.token1(), zapStakeAmount).mul(PRECISION);
+    }
 
     uint256 ethxAmountETHValue = IETHxPool(ethxPool).get_virtual_price().mul(ethxAmount).div(DECIMALS);
     if (ethxAmountETHValue == 0) {
@@ -188,6 +194,12 @@ contract RewardBooster is IRewardBooster, IZapDelegator, Ownable, ReentrancyGuar
 
     require(unstakeableAmount > 0, "No zapped tokens to unstake");
     farm.updateBoostRate(_msgSender());
+  }
+
+  function tryUpdateOracle() external {
+    if (lsdEthOracle.canUpdate()) {
+      lsdEthOracle.update();
+    }
   }
 
   /*******************************************************/

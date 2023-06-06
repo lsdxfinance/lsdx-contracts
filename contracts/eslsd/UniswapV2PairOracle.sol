@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
-pragma solidity =0.6.6;
+pragma solidity ^0.8.9;
 
 import '@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol';
 import '@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol';
 import '@uniswap/lib/contracts/libraries/FixedPoint.sol';
 import '@uniswap/v2-periphery/contracts/libraries/UniswapV2OracleLibrary.sol';
-import '@uniswap/v2-periphery/contracts/libraries/UniswapV2Library.sol';
 
 // fixed window oracle that recomputes the average price for the entire period once every period
 // note that the price average is only guaranteed to be over at least 1 period, but may be over a longer period
@@ -24,9 +23,9 @@ contract UniswapV2PairOracle {
   FixedPoint.uq112x112 public price0Average;
   FixedPoint.uq112x112 public price1Average;
 
-  constructor(address factory, address tokenA, address tokenB) public {
-    IUniswapV2Pair _pair = IUniswapV2Pair(UniswapV2Library.pairFor(factory, tokenA, tokenB));
-    pair = _pair;
+  constructor(address _pairAddress) {
+    IUniswapV2Pair _pair = IUniswapV2Pair(_pairAddress);
+    pair = IUniswapV2Pair(_pairAddress);
     token0 = _pair.token0();
     token1 = _pair.token1();
     price0CumulativeLast = _pair.price0CumulativeLast(); // fetch the current accumulated price value (1 / 0)
@@ -67,7 +66,7 @@ contract UniswapV2PairOracle {
     if (token == token0) {
       amountOut = price0Average.mul(amountIn).decode144();
     } else {
-      require(token == token1, 'ExampleOracleSimple: INVALID_TOKEN');
+      require(token == token1, 'UniswapV2PairOracle: INVALID_TOKEN');
       amountOut = price1Average.mul(amountIn).decode144();
     }
   }
