@@ -15,7 +15,7 @@ import "./interfaces/IBoostableFarm.sol";
 import "./interfaces/IesLSD.sol";
 import "./interfaces/IRewardBooster.sol";
 import "./interfaces/IZapDelegator.sol";
-import "../interfaces/IETHxPool.sol";
+import "../interfaces/ICurvePool.sol";
 
 contract RewardBooster is IRewardBooster, IZapDelegator, Ownable, ReentrancyGuard {
   using SafeMath for uint256;
@@ -23,7 +23,7 @@ contract RewardBooster is IRewardBooster, IZapDelegator, Ownable, ReentrancyGuar
 
   IUniswapV2Pair public lsdEthPair;
   UniswapV2PairOracle public lsdEthOracle;
-  IETHxPool public ethxPool;
+  ICurvePool public ethxPool;
   IBoostableFarm public farm;
   IesLSD public esLSD;
 
@@ -59,7 +59,7 @@ contract RewardBooster is IRewardBooster, IZapDelegator, Ownable, ReentrancyGuar
 
     lsdEthPair = IUniswapV2Pair(_lsdEthPair);
     lsdEthOracle = new UniswapV2PairOracle(_lsdEthPair);
-    ethxPool = IETHxPool(_ethxPool);
+    ethxPool = ICurvePool(_ethxPool);
     farm = IBoostableFarm(_farm);
     esLSD = IesLSD(_esLSD);
   }
@@ -112,7 +112,7 @@ contract RewardBooster is IRewardBooster, IZapDelegator, Ownable, ReentrancyGuar
       zapStakeAmountETHValue = lsdEthOracle.consult(lsdEthPair.token1(), zapStakeAmount).mul(PRECISION);
     }
 
-    uint256 ethxAmountETHValue = IETHxPool(ethxPool).get_virtual_price().mul(ethxAmount).div(DECIMALS);
+    uint256 ethxAmountETHValue = ICurvePool(ethxPool).get_virtual_price().mul(ethxAmount).div(DECIMALS);
     if (ethxAmountETHValue == 0) {
       return 1 * DECIMALS;
     }

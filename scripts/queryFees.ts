@@ -1,8 +1,7 @@
 import * as _ from 'lodash';
 import dotenv from "dotenv";
 import { ethers } from "hardhat";
-import { StakingPool__factory, IETHxPool__factory } from '../typechain';
-import { IERC20__factory } from '../typechain/factories/@openzeppelin/contracts/token/ERC20';
+import { StakingPool__factory, ICurvePool__factory, IERC20__factory } from '../typechain';
 
 dotenv.config();
 const infuraKey: string = process.env.INFURA_KEY || "";
@@ -19,7 +18,7 @@ async function main() {
   const stETHFees = (await stETH.balanceOf(stETHStakingPoolAddress)).sub(await stETHStakingPool.totalSupply());
   console.log(`stETH fees: ${ethers.utils.formatEther(stETHFees)}`);
 
-  const ethxPool = IETHxPool__factory.connect(ethxPoolAddress, provider);
+  const ethxPool = ICurvePool__factory.connect(ethxPoolAddress, provider);
   console.log(`ETHx fees`);
   console.log(`\tETH: ${ethers.utils.formatEther(await ethxPool.admin_balances(0))}`);
   console.log(`\tstETH: ${ethers.utils.formatUnits(await ethxPool.admin_balances(1), 18)}`);
