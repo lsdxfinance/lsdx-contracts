@@ -49,9 +49,9 @@
 
 理论上来讲，用户的 *Boost Rate* 会根据 \$ETHx、\$LSD 的价格波动而实时波动。本合约支持两种方式来更新指定用户的 *Boost Rate*:
 
-1. 自动更新。用户和合约正常交互时，自动更新自己的 *Boost Rate*，比如`BoostableFarm` 的 `stake`、`withdraw`、`getReward`，`RewardBooster` 的 `stake`、`unstake`、`zapStake`、`zapUnstake`、等等。
+1. 自动更新。用户和合约正常交互时，自动更新自己的 *Boost Rate*，比如 `RewardBooster` 的 `stake`、`unstake`、`zapStake`、`zapUnstake`、等等，会自动调用 `BoostableFarm.updateBoostRate`
 
-2. 主动更新。`BoostableFarm.updateBoostRate`。如果用户长时间未和合约正常交互，但是实际 *Boost Rate* 发生偏离，可以主动调用 `BoostableFarm.updateBoostRate` 来触发更新。
+2. 主动更新。如果用户长时间未和合约正常交互，但是实际 *Boost Rate* 发生偏离，可以主动调用 `BoostableFarm.updateBoostRate` 来触发更新。
 
 # RewardBooster
 
@@ -88,8 +88,9 @@ Boost Rate = 1 + 10 * (LP Value + $esLSD Value) / (ETHx Value)
 
 # UniswapV2PairOracle
 
-基于 Uniswap Pair 的预言机，参考文档和实现：
+基于 Uniswap Pair 的预言机，在 `BoostableFarm.updateBoostRate` 被调用时会自动触发预言机价格更新。参考文档和实现：
 
 https://docs.uniswap.org/contracts/v2/guides/smart-contract-integration/building-an-oracle#fixed-windows
 
 https://github.com/Uniswap/v2-periphery/blob/master/contracts/examples/ExampleOracleSimple.sol
+
