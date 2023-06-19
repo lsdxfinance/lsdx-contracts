@@ -28,8 +28,6 @@ contract RewardBooster is IRewardBooster, IZapDelegator, Ownable, ReentrancyGuar
   IesLSD public esLSD;
 
   uint256 public stakePeriod = 7 days;
-  uint256 public constant MIN_STAKE_PERIOD = 3 days;
-  uint256 public constant MAX_STAKE_PERIOD = 15 days;
 
   mapping(address => StakeInfo[]) public userStakes;
   mapping(address => ZapStakeInfo[]) public userZapStakes;
@@ -202,19 +200,6 @@ contract RewardBooster is IRewardBooster, IZapDelegator, Ownable, ReentrancyGuar
     }
   }
 
-  /*******************************************************/
-  /****************** RESTRICTED FUNCTIONS ***************/
-  /*******************************************************/
-
-  function setStakePeriod(uint256 _period) external onlyOwner nonReentrant {
-    require(_period >= MIN_STAKE_PERIOD && _period <= MAX_STAKE_PERIOD, "Invalid stake period");
-    require(_period != stakePeriod, "Same period");
-
-    uint256 previousStakePeriod = stakePeriod;
-    stakePeriod = _period;
-    emit UpdateStakePeriod(previousStakePeriod, stakePeriod);
-  }
-
   /********************************************************/
   /****************** INTERNAL FUNCTIONS ******************/
   /********************************************************/
@@ -233,7 +218,6 @@ contract RewardBooster is IRewardBooster, IZapDelegator, Ownable, ReentrancyGuar
   /****************** EVENTS ******************/
   /********************************************/
 
-  event UpdateStakePeriod(uint256 previousPeriod, uint256 period);
   event Stake(address indexed userAddress, uint256 amount, uint256 period);
   event Unstake(address indexed userAddress, uint256 amount);
   event ZapStake(address indexed userAddress, uint256 amount, uint256 period);

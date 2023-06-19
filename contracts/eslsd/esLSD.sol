@@ -21,8 +21,6 @@ contract esLSD is Ownable, ReentrancyGuard, ERC20("esLSD Token", "esLSD") {
   address public zapDelegator;
 
   uint256 public vestingPeriod = 90 days;
-  uint256 public constant MIN_VESTING_PERIOD = 30 days;
-  uint256 public constant MAX_VESTING_PERIOD = 120 days;
 
   mapping(address => VestingInfo) public userVestings; // User's vesting instances
 
@@ -168,15 +166,6 @@ contract esLSD is Ownable, ReentrancyGuard, ERC20("esLSD Token", "esLSD") {
   /****************** RESTRICTED FUNCTIONS ***************/
   /*******************************************************/
 
-  function setVestingPeriod(uint256 _period) external onlyOwner nonReentrant {
-    require(_period >= MIN_VESTING_PERIOD && _period <= MAX_VESTING_PERIOD, "Invalid period");
-    require(_period != vestingPeriod, "Same period");
-
-    uint256 previousVestPeriod = vestingPeriod;
-    vestingPeriod = _period;
-    emit UpdateVestingPeriod(previousVestPeriod, vestingPeriod);
-  }
-
   function setZapDelegator(address _zapDelegator) external nonReentrant onlyOwner {
     require(_zapDelegator != address(0), "Zero address detected");
     require(zapDelegator != _zapDelegator, "Same zap delegator");
@@ -199,7 +188,6 @@ contract esLSD is Ownable, ReentrancyGuard, ERC20("esLSD Token", "esLSD") {
   /****************** EVENTS ******************/
   /********************************************/
 
-  event UpdateVestingPeriod(uint256 previousDuration, uint256 period);
   event UpdateZapDelegator(address previousDelegator, address delegator);
   event Escrow(address indexed userAddress, uint256 amount);
   event Claim(address indexed userAddress, uint256 amount);

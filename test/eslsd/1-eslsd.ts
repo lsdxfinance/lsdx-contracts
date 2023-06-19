@@ -94,58 +94,6 @@ describe('esLSD Token', () => {
     await expect(esLSD.connect(Bob).claim()).to.be.rejectedWith(/No tokens to claim/);
   });
 
-  it('Vest Duration Could be updated', async () => {
-
-    const { lsdCoin, esLSD, Alice, Bob } = await loadFixture(deployLsdxV2ContractsFixture);
-
-    // Default to 90 days
-    const vestPeirod90days = ONE_DAY_IN_SECS * 90;
-    expect(await esLSD.vestingPeriod()).to.equal(vestPeirod90days);
-
-    // Bob $esLSD: 10_000
-    const esBalance = expandTo18Decimals(10_000);
-    await expect(lsdCoin.connect(Alice).mint(Bob.address, esBalance)).not.to.be.reverted;
-    await expect(lsdCoin.connect(Bob).approve(esLSD.address, esBalance)).not.to.be.reverted;
-    await expect(esLSD.connect(Bob).escrow(esBalance)).not.to.be.rejected;
-
-    // Day 0
-    const genesisTime = await time.latest();
-    const vestAmount = expandTo18Decimals(1000);
-    let trans = await esLSD.connect(Bob).vest(vestAmount);
-    await expect(trans)
-      .to.emit(esLSD, 'Transfer').withArgs(Bob.address, esLSD.address, vestAmount)
-      .to.emit(esLSD, 'Vest').withArgs(Bob.address, vestAmount, vestAmount, vestPeirod90days);
-    let vestTimestamp = (await provider.getBlock(trans.blockNumber as number)).timestamp;
-
-    // Day 9
-    await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 9);
-    let vestInfo = await esLSD.userVestings(Bob.address);
-    expect(vestInfo.endTime).to.equal(vestTimestamp + vestPeirod90days);
-    
-    // Only admin could update
-    await expect(esLSD.connect(Bob).setVestingPeriod(ONE_DAY_IN_SECS * 60)).to.be.rejectedWith(/Ownable: caller is not the owner/);
-
-    // Could only set within a range
-    await expect(esLSD.connect(Alice).setVestingPeriod(ONE_DAY_IN_SECS * 10)).to.be.rejectedWith(/Invalid period/);
-    await expect(esLSD.connect(Alice).setVestingPeriod(ONE_DAY_IN_SECS * 200)).to.be.rejectedWith(/Invalid period/);
-
-    // Update vesting period. Only subsequent vestings are affected
-    const vestPeirod60days = ONE_DAY_IN_SECS * 60;
-    await expect(await esLSD.connect(Alice).setVestingPeriod(vestPeirod60days))
-      .to.emit(esLSD, 'UpdateVestingPeriod').withArgs(vestPeirod90days, vestPeirod60days);
-    vestInfo = await esLSD.userVestings(Bob.address);
-    expect(vestInfo.endTime).to.equal(vestTimestamp + vestPeirod90days);
-
-    // New vest
-    trans = await esLSD.connect(Bob).vest(vestAmount);
-    await expect(trans)
-      .to.emit(esLSD, 'Transfer').withArgs(Bob.address, esLSD.address, vestAmount)
-      .to.emit(esLSD, 'Vest').withArgs(Bob.address, vestAmount, anyValue, vestPeirod60days);
-    vestTimestamp = (await provider.getBlock(trans.blockNumber as number)).timestamp;
-    vestInfo = await esLSD.userVestings(Bob.address);
-    expect(vestInfo.endTime).to.equal(vestTimestamp + vestPeirod60days);
-  });
-
   it('Zap Vest', async () => {
 
     const { lsdCoin, esLSD, Alice, Bob, Caro } = await loadFixture(deployLsdxV2ContractsFixture);

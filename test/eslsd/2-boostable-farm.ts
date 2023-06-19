@@ -186,18 +186,18 @@ describe('Boostable Farm', () => {
     expectBigNumberEquals(await rewardBooster.getBoostRate(Bob.address, ethxAmount), baseRate.mul(100155).div(100000));
 
     // Day 4. Alice update stake period to 10 days
-    const stakePeirod10days = ONE_DAY_IN_SECS * 10;
-    await expect(rewardBooster.connect(Bob).setStakePeriod(stakePeirod10days)).to.be.rejectedWith(/Ownable: caller is not the owner/);
-    await expect(rewardBooster.connect(Alice).setStakePeriod(stakePeirod10days))
-      .to.emit(rewardBooster, 'UpdateStakePeriod').withArgs(stakePeirod7days, stakePeirod10days);
-    expect(await rewardBooster.stakePeriod()).to.equal(stakePeirod10days);
+    // const stakePeirod10days = ONE_DAY_IN_SECS * 10;
+    // await expect(rewardBooster.connect(Bob).setStakePeriod(stakePeirod10days)).to.be.rejectedWith(/Ownable: caller is not the owner/);
+    // await expect(rewardBooster.connect(Alice).setStakePeriod(stakePeirod10days))
+    //   .to.emit(rewardBooster, 'UpdateStakePeriod').withArgs(stakePeirod7days, stakePeirod10days);
+    // expect(await rewardBooster.stakePeriod()).to.equal(stakePeirod10days);
 
-    // Day 5. Bob zap stakes another 500 $esLSD. Lock period: [D5 ~ D15]
+    // Day 5. Bob zap stakes another 500 $esLSD. Lock period: [D5 ~ D12]
     await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 5);    
     const bobZapStakeAmount2 = expandTo18Decimals(500);
     await expect(rewardBooster.connect(Bob).zapStake(bobZapStakeAmount2))
       .to.emit(esLSD, 'Transfer').withArgs(Bob.address, rewardBooster.address, bobZapStakeAmount2)
-      .to.emit(rewardBooster, 'ZapStake').withArgs(Bob.address, bobZapStakeAmount2, stakePeirod10days);
+      .to.emit(rewardBooster, 'ZapStake').withArgs(Bob.address, bobZapStakeAmount2, stakePeirod7days);
     expect((await rewardBooster.getZapStakeAmount(Bob.address))[1]).to.equal(bobZapStakeAmount.add(bobZapStakeAmount2));
 
     // Expected boost rate: 1 + (15 * 0.002 + 1500 * 0.000001) / (10 * 2.0) = 1.001575
@@ -234,8 +234,8 @@ describe('Boostable Farm', () => {
     expect((await rewardBooster.getZapStakeAmount(Bob.address))[0].toNumber()).to.equal(0);
     expect((await rewardBooster.getZapStakeAmount(Bob.address))[1]).to.equal(bobZapStakeAmount2);
 
-    // Day 14. Bob could not yet unstake 500 $esLSD
-    await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 14);
+    // Day 11.5. Bob could not yet unstake 500 $esLSD
+    await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 11.5);
     await expect(rewardBooster.connect(Bob).zapUnstake()).to.be.rejectedWith(/No zapped tokens to unstake/);
 
     // Day 16. Bob could unstake 500 $esLSD
