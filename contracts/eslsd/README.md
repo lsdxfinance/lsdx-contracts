@@ -18,8 +18,8 @@ $ hh verify --network <mainnet/goerli> <address>
 
 ## Goerli
 
-- esLSD: 0xe905235009Fb82aDfeaB7c6305aEba3d35d3b69f
+- esLSD: 0x05f7d32639230cbdcB5c5471F5a59DEdcB570c42
 
-- BoostableFarm: 0x8550dD785c94f1c9C8069694724d8627fC894db7
+- BoostableFarm: 0xB3eB1e32600f943D74005d42CEc1352529cA4E48
 
-- RewardBooster: 0xbb7953E1ee6248F2B204B73C4474969421723B46
+- RewardBooster: 0xbc7404CAc4407cA48d4721C5502c5aA2F1007225
