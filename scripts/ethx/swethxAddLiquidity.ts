@@ -10,7 +10,7 @@ const infuraKey: string = process.env.INFURA_KEY || "";
 // Goerli
 const ethxAddress = '0xF4C911C395DB0b993AD2909c0135cbd4D31D89CA';
 const swETHAddress = '0x8bb383A752Ff3c1d510625C6F536E3332327068F';
-const swethxPoolAddress = '0xd7D66d0afA06Cc881A930101FD3ea477f81C9DB8';
+const swethxPoolAddress = '0x16a097f539942d48F6e10bbE1903735d2305d5D9';
 const provider = new ethers.providers.JsonRpcProvider(`https://goerli.infura.io/v3/${infuraKey}`);
 
 async function main() {

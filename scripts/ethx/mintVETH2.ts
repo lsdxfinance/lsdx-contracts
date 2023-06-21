@@ -10,7 +10,7 @@ const infuraKey: string = process.env.INFURA_KEY || "";
 
 // Goerli
 // const slpDepositAddress = '0xE85E24C9E85a8e1DAF575DEEbFE2eccdB2a09122';
-const slpCoreAddress = '0x41354fCaDd625e1DB1f166075Ca32cf081B25b35';
+const slpCoreAddress = '0x92810f6023FA2485C3778fdd90985dC75660bb63';
 const provider = new ethers.providers.JsonRpcProvider(`https://goerli.infura.io/v3/${infuraKey}`);
 
 async function main() {
@@ -23,7 +23,7 @@ async function main() {
   const slpCore = ISLPCore__factory.connect(slpCoreAddress, provider);
 
   const veth2Address = await slpCore.vETH2();
-  // const veth2Address = '0x686F165076a6C6F7cC081084aB64Ba1d92530E35';
+  // const veth2Address = '0x6e2BA9C11ac4e6F3dFA1053c4f9dc1a3B7135c21';
   console.log(`vETH2 address: ${veth2Address}`);
   const veth2 = IERC20__factory.connect(veth2Address, provider);
 
