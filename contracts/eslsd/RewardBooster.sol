@@ -14,10 +14,9 @@ import "./UniswapV2PairOracle.sol";
 import "./interfaces/IBoostableFarm.sol";
 import "./interfaces/IesLSD.sol";
 import "./interfaces/IRewardBooster.sol";
-import "./interfaces/IZapDelegator.sol";
 import "../interfaces/ICurvePool.sol";
 
-contract RewardBooster is IRewardBooster, IZapDelegator, Ownable, ReentrancyGuard {
+contract RewardBooster is IRewardBooster, Ownable, ReentrancyGuard {
   using SafeMath for uint256;
   using SafeERC20 for IERC20;
 
