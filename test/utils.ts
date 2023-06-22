@@ -1,3 +1,4 @@
+import { BigNumber } from 'ethers';
 import { expect } from 'chai'
 import { ethers, upgrades } from 'hardhat';
 import { time } from "@nomicfoundation/hardhat-network-helpers";
@@ -23,7 +24,7 @@ import {
   UniswapV2PairOracle__factory
 } from '../typechain';
 
-const { provider, BigNumber } = ethers;
+const { provider } = ethers;
 
 export const ONE_DAY_IN_SECS = 24 * 60 * 60;
 
