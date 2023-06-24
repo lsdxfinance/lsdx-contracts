@@ -4,18 +4,18 @@
 ## Step 1: Deploy ETHx Proxy on Goerli
 
 ```sh
-$ hh run scripts/layerzero/deployETHxProxyOFTV2.ts --network goerli
+$ hh run scripts/layerzero/deployETHxProxyOFT.ts --network goerli
 
-$ hh verify --network goerli 0x84DD87eB0fC034A098f7145a2f2d4C159359215A ...
+$ hh verify --network goerli  ...
 ```
 
-## Step 2: Deploy ETHx OFTV2 on Polygon zkEVM
+## Step 2: Deploy ETHx OFT on Polygon zkEVM
 
 ```sh
-$ hh run scripts/layerzero/deployETHxOFTV2.ts --network polygonZkEVMTestnet
+$ hh run scripts/layerzero/deployETHxOFT.ts --network polygonZkEVMTestnet
 
-$ hh flatten ./contracts/layerzero/ETHxOFTV2.sol > ./contracts/layerzero/ETHxOFTV2_FLATTENED.sol
-$ hh verify --contract contracts/layerzero/ETHxOFTV2.sol:ETHxOFTV2 --network polygonZkEVMTestnet 0x0839aF3391d05e28328E99Fe234023c2d22b3Fc2 0x6aB5Ae6822647046626e83ee6dB8187151E1d5ab 0 8
+$ hh flatten ./contracts/layerzero/ETHxOFT.sol > ./contracts/layerzero/ETHxOFTV2_FLATTENED.sol
+$ hh verify --contract contracts/layerzero/ETHxOFT.sol:ETHxOFT --network polygonZkEVMTestnet ...
 ```
 
 ## Step 3: Set trusted endpoint
@@ -29,14 +29,16 @@ $ hh run scripts/layerzero/setTrustedRemotePolygonZkEVM.ts --network polygonZkEV
 ## Test
 
 ```sh
+$ hh run scripts/layerzero/sendTokensGoerli.ts --network goerli
 
+$ hh run scripts/layerzero/sendTokensPolygonZkEVM.ts --network polygonZkEVMTestnet
 ```
 
 ## Addresses
 
 - Goerli ETHx: 0xE3AA29cC330c5dd28429641Dd50409553f1f4476
-- Goerli ETHxProxyOFTV2: 0x84DD87eB0fC034A098f7145a2f2d4C159359215A
-- Polygon zkEVM Testnet ETHx: 0x0839aF3391d05e28328E99Fe234023c2d22b3Fc2
+- Goerli ETHxProxyOFT: 0x33cd7Bdb353196BbAbB555Abbe35D35Ee87D3D74
+- Polygon zkEVM Testnet ETHx: 0xb16b9F9CaA3fdAD503eD35E1d7C773f2BE79E0B1
 
 ## Ref
 

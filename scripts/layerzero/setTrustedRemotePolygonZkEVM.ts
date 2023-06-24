@@ -1,7 +1,7 @@
 import * as _ from 'lodash';
 import dotenv from "dotenv";
 import { ethers } from "hardhat";
-import { ETHxOFTV2__factory } from '../../typechain';
+import { ETHxOFT__factory } from '../../typechain';
 
 dotenv.config();
 
@@ -9,33 +9,33 @@ const privateKey: string = process.env.PRIVATE_KEY || "";
 
 // Polygon zkEVM testnet
 const provider = new ethers.providers.JsonRpcProvider(`https://rpc.public.zkevm-test.net`);
-const ethxOFTV2Address = '0x0839aF3391d05e28328E99Fe234023c2d22b3Fc2';
+const ethxOFTAddress = '0xb16b9F9CaA3fdAD503eD35E1d7C773f2BE79E0B1';
 // ref: https://layerzero.gitbook.io/docs/technical-reference/testnet/testnet-addresses
 const remoteChainId = 10121; // goerli
-const remoteEthxAddress = '0x84DD87eB0fC034A098f7145a2f2d4C159359215A';
+const remoteEthxAddress = '0x33cd7Bdb353196BbAbB555Abbe35D35Ee87D3D74';
 
 // Polygon zkEVM
 // const provider = new ethers.providers.JsonRpcProvider(`https://zkevm-rpc.com`);
 
 async function main() {
-  const ethxOFTV2 = ETHxOFTV2__factory.connect(ethxOFTV2Address, provider);
+  const ethxOFT = ETHxOFT__factory.connect(ethxOFTAddress, provider);
 
   let remoteAndLocal = ethers.utils.solidityPack(
       ['address','address'],
-      [remoteEthxAddress, ethxOFTV2Address]
+      [remoteEthxAddress, ethxOFTAddress]
   )
 
-  let isTrustedRemote = await ethxOFTV2.isTrustedRemote(remoteChainId, remoteAndLocal);
+  let isTrustedRemote = await ethxOFT.isTrustedRemote(remoteChainId, remoteAndLocal);
   console.log(`Is trusted remote: ${isTrustedRemote}`);
   if (isTrustedRemote) {
     return;
   }
 
   const admin = new ethers.Wallet(privateKey, provider);
-  const trans = await ethxOFTV2.connect(admin).setTrustedRemote(remoteChainId, remoteAndLocal);
+  const trans = await ethxOFT.connect(admin).setTrustedRemote(remoteChainId, remoteAndLocal);
   await trans.wait();
   console.log(`Set trusted remote`);
-  isTrustedRemote = await ethxOFTV2.isTrustedRemote(remoteChainId, remoteAndLocal);
+  isTrustedRemote = await ethxOFT.isTrustedRemote(remoteChainId, remoteAndLocal);
   console.log(`Is trusted remote: ${isTrustedRemote}`);
 }
 
