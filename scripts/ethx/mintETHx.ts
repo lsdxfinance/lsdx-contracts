@@ -9,16 +9,16 @@ const privateKey: string = process.env.PRIVATE_KEY || "";
 const infuraKey: string = process.env.INFURA_KEY || "";
 
 // Goerli
-const frxETHAddress = '0x6Bc98c23e1b72e5aA4b627f814c475071FF2dB47';
-const ethxAddress = '0xF4C911C395DB0b993AD2909c0135cbd4D31D89CA';
-const ethxPoolAddress = '0x3f1bE9EE10024EE5D3463eE0b407e56A1cC2E45E';
+// const frxETHAddress = '0x6Bc98c23e1b72e5aA4b627f814c475071FF2dB47';
+const ethxAddress = '0xE3AA29cC330c5dd28429641Dd50409553f1f4476';
+const ethxPoolAddress = '0x0Bd61885112A7415E39c49818aFd9eB41BF4fC39';
 const provider = new ethers.providers.JsonRpcProvider(`https://goerli.infura.io/v3/${infuraKey}`);
 
 async function main() {
   const admin = new ethers.Wallet(privateKey, provider);
 
   const ethx = IERC20__factory.connect(ethxAddress, provider);
-  const frxETH = IERC20__factory.connect(frxETHAddress, provider);
+  // const frxETH = IERC20__factory.connect(frxETHAddress, provider);
   const ethxPool = ICurvePool__factory.connect(ethxPoolAddress, provider);
 
   // Check ethx balances
@@ -26,15 +26,16 @@ async function main() {
   console.log(`ETHx balance: ${ethers.utils.formatUnits(ethxBalance, 18)}`);
 
   // Check frxETH balances
-  const frxETHBalance = await frxETH.balanceOf(admin.address);
-  console.log(`frxETH balance: ${ethers.utils.formatUnits(frxETHBalance, 18)}`);
+  // const frxETHBalance = await frxETH.balanceOf(admin.address);
+  // console.log(`frxETH balance: ${ethers.utils.formatUnits(frxETHBalance, 18)}`);
 
-  // Mint ETHx by adding 10 frxETH
-  const frxETHAmountToAdd = ethers.utils.parseUnits('10', 18);
-  const frxETHApproveTrans = await frxETH.connect(admin).approve(ethxPool.address, frxETHAmountToAdd);
-  await frxETHApproveTrans.wait();
-  console.log(`Approved frxETH transfer of ${ethers.utils.formatUnits(frxETHAmountToAdd, 18)}`);
-  const addLiqudiityTrans = await ethxPool.connect(admin).add_liquidity([BigNumber.from(0), BigNumber.from(0), frxETHAmountToAdd, BigNumber.from(0)], BigNumber.from(0), { value: BigNumber.from(0) });
+  // Mint ETHx by adding 0.1 ETH
+  // const frxETHAmountToAdd = ethers.utils.parseUnits('10', 18);
+  // const frxETHApproveTrans = await frxETH.connect(admin).approve(ethxPool.address, frxETHAmountToAdd);
+  // await frxETHApproveTrans.wait();
+  // console.log(`Approved frxETH transfer of ${ethers.utils.formatUnits(frxETHAmountToAdd, 18)}`);
+  const ethAmountToAdd = ethers.utils.parseUnits('0.1', 18);
+  const addLiqudiityTrans = await ethxPool.connect(admin).add_liquidity([ethAmountToAdd, BigNumber.from(0), BigNumber.from(0), BigNumber.from(0)], BigNumber.from(0), { value: ethAmountToAdd });
   await addLiqudiityTrans.wait();
   ethxBalance = await ethx.balanceOf(admin.address);
   console.log(`Added liquidity. ETHx balance: ${ethers.utils.formatUnits(ethxBalance, 18)}`);

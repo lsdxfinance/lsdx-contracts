@@ -8,8 +8,8 @@ const infuraKey: string = process.env.INFURA_KEY || "";
 
 // Goerli
 const lsdCoinAddress = '0x6a45C5515CD20905e6A971A3185D82E8988aA826';
-const ethxAddress = '0xF4C911C395DB0b993AD2909c0135cbd4D31D89CA';
-const ethxPoolAddress = '0x3f1bE9EE10024EE5D3463eE0b407e56A1cC2E45E';
+const ethxAddress = '0xE3AA29cC330c5dd28429641Dd50409553f1f4476';
+const ethxPoolAddress = '0x0Bd61885112A7415E39c49818aFd9eB41BF4fC39';
 const lsdEthPairAddress = '0x4ee39d23773Fa2caa6c9AD9aeaD67491eB2aB095';
 const provider = new ethers.providers.JsonRpcProvider(`https://goerli.infura.io/v3/${infuraKey}`);
 

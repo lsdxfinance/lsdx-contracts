@@ -9,12 +9,20 @@ import { NetworkUserConfig } from "hardhat/types";
 
 dotenv.config();
 
+// Set Proxy
+// const proxyUrl = 'http://127.0.0.1:49213';
+// const { ProxyAgent, setGlobalDispatcher } = require("undici");
+// const proxyAgent = new ProxyAgent(proxyUrl);
+// setGlobalDispatcher(proxyAgent);
+
 const chainIds = {
   hardhat: 31337,
   ganache: 1337,
   mainnet: 1,
   rinkeby: 4,
   goerli: 5,
+  polygonZkEVM: 1101,
+  polygonZkEVMTestnet: 1442
 };
 
 // Ensure that we have all the environment variables we need.
@@ -36,6 +44,12 @@ function createTestnetConfig(network: keyof typeof chainIds): NetworkUserConfig 
       break;
     case "goerli":
       nodeUrl = `https://goerli.infura.io/v3/${infuraKey}`;
+      break;
+    case "polygonZkEVM":
+      nodeUrl = `https://zkevm-rpc.com`;
+      break;
+    case "polygonZkEVMTestnet":
+      nodeUrl = `https://rpc.public.zkevm-test.net`;
       break;
   }
 
@@ -104,7 +118,18 @@ const config: HardhatUserConfig = {
       mainnet: process.env.ETHERSCAN_KEY || '',
       rinkeby: process.env.ETHERSCAN_KEY || '',
       goerli: process.env.ETHERSCAN_KEY || '',
+      polygonZkEVMTestnet: process.env.ZKEVM_POLYGONSCAN_KEY || ''
     },
+    customChains: [
+      {
+        network: "polygonZkEVMTestnet",
+        chainId: 1442,
+        urls: {
+          apiURL: "https://api-testnet-zkevm.polygonscan.com/api",
+          browserURL: "https://testnet-zkevm.polygonscan.com"
+        }
+      }
+    ]
   }
 };
 
@@ -113,6 +138,8 @@ if (privateKey) {
     mainnet: createTestnetConfig("mainnet"),
     goerli: createTestnetConfig("goerli"),
     rinkeby: createTestnetConfig("rinkeby"),
+    polygonZkEVM: createTestnetConfig("polygonZkEVM"),
+    polygonZkEVMTestnet: createTestnetConfig("polygonZkEVMTestnet")
   };
 }
 

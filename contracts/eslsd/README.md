@@ -8,7 +8,7 @@ With same keys to `.env-example`
 ### Deploy LsdCoin
 
 ```sh
-$ hh run scripts/deployLsdxV2Contracts.ts --network <mainnet/goerli>
+$ hh run scripts/v2/deployLsdxV2Contracts.ts --network <mainnet/goerli>
 
 # Etherscan verify
 $ hh verify --network <mainnet/goerli> <address>
@@ -18,8 +18,8 @@ $ hh verify --network <mainnet/goerli> <address>
 
 ## Goerli
 
-- esLSD: 0x05f7d32639230cbdcB5c5471F5a59DEdcB570c42
+- esLSD: 0x1BE8E518Bd954F782fA22497ee746C520b472F52
 
-- BoostableFarm: 0xB3eB1e32600f943D74005d42CEc1352529cA4E48
+- BoostableFarm: 0xc7Afa6cE0b1AB3161cA3c356c19BdC60D1Fe71Dc
 
-- RewardBooster: 0xbc7404CAc4407cA48d4721C5502c5aA2F1007225
+- RewardBooster: 0x40Fcc1617EE97c45ca7e67Bb40C4270F29a4e121
