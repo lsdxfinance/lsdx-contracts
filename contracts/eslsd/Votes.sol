@@ -18,318 +18,257 @@ contract Votes is Ownable, ReentrancyGuard {
   using Counters for Counters.Counter;
   using DoubleEndedQueue for DoubleEndedQueue.Bytes32Deque;
   using EnumerableSet for EnumerableSet.AddressSet;
+  using EnumerableSet for EnumerableSet.UintSet;
 
   /* ========== STATE VARIABLES ========== */
 
-  IERC20 public lsdToken;
-  esLSD public velsdToken;
-  EnumerableSet.AddressSet private _rewardTokensSet;
-  EnumerableSet.AddressSet private _rewardersSet;
+  uint256 constant flashRewardDuration = 1 seconds;
 
-  mapping(address => uint256) public periodFinish;
-  mapping(address => uint256) public rewardRates;
-  mapping(address => uint256) public rewardsPerTokenStored;
-  mapping(address => uint256) public lastUpdateTime;
+  address public votingToken;
 
-  mapping(address => mapping(address => uint256)) public userRewardsPerTokenPaid;
-  mapping(address => mapping(address => uint256)) public rewards;
-
-  uint256 private _totalSupply;
-  mapping(address => uint256) private _balances;
-  uint256 private _adminFee;
-  Counters.Counter private _nextLockId;
-  mapping(address => DoubleEndedQueue.Bytes32Deque) private _userVelsdLocked;
-  mapping(uint256 => VelsdLocked) private _allVelsdLocked;
-
-  struct VelsdLocked {
-    uint256 lockId;
-    uint256 amount;
-    uint256 depositTime;
+  Counters.Counter private _nextVotingPoolId;
+  EnumerableSet.UintSet private _votingPoolIds;
+  mapping(uint256 => VotingPool) private _votingPools;
+  struct VotingPool {
+    uint256 id;
+    bool deprecated;
+    string name;
+    address bribeToken;
   }
+
+  mapping(uint256 => uint256) private _totalVotes;
+  mapping(uint256 => mapping(address => uint256)) private _userVotes;
+
+  EnumerableSet.AddressSet private _bribersSet;
+
+  mapping(uint256 => uint256) public periodFinish;
+  mapping(uint256 => uint256) public bribeRates;
+  mapping(uint256 => uint256) public bribesPerTokenStored;
+  mapping(uint256 => uint256) public lastUpdateTime;
+  mapping(uint256 => mapping(address => uint256)) public userBribesPerTokenPaid;
+
+  mapping(uint256 => mapping(address => uint256)) public bribes;
 
   /* ========== CONSTRUCTOR ========== */
 
   constructor(
-    address _lsdToken,
-    address[] memory _rewardTokens,
-    address _velsdToken
+    address _votingToken
   ) Ownable() {
-    require(_lsdToken != address(0), "Zero address detected");
-    require(_rewardTokens.length > 0, "Empty reward token list");
-    require(_velsdToken != address(0), "Zero address detected");
-
-    lsdToken = IERC20(_lsdToken);
-    for (uint256 i = 0; i < _rewardTokens.length; i++) {
-      addRewardToken(_rewardTokens[i]);
-    }
-    addRewarder(_msgSender());
-    velsdToken = esLSD(_velsdToken);
+    require(_votingToken != address(0), "Zero address detected");
+    votingToken = _votingToken;
+    addBriber(_msgSender());
   }
 
   /* ========== VIEWS ========== */
 
-  function totalSupply() external view returns (uint256) {
-    return _totalSupply;
+  function getVotingPools(bool activeOnly) public view returns (VotingPool[] memory) {
+    uint256 count = 0;
+    for (uint256 i = 0; i < _votingPoolIds.length(); i++) {
+      uint256 poolId = _votingPoolIds.at(i);
+      VotingPool storage pool = _votingPools[poolId];
+      if (!activeOnly || !pool.deprecated) {
+        count++;
+      }
+    }
+
+    VotingPool[] memory pools = new VotingPool[](count);
+    uint256 index = 0;
+    for (uint256 i = 0; i < _votingPoolIds.length(); i++) {
+      uint256 poolId = _votingPoolIds.at(i);
+      VotingPool storage pool = _votingPools[poolId];
+      if (!activeOnly || !pool.deprecated) {
+        pools[index] = pool;
+        index++;
+      }
+    }
+    return pools;
+  }
+  
+  function totalVotes(uint256 poolId) external view onlyValidVotingPool(poolId) returns (uint256) {
+    return _totalVotes[poolId];
   }
 
-  function balanceOf(address account) external view returns (uint256) {
-    return _balances[account];
+  function votesOf(uint256 poolId, address account) external view onlyValidVotingPool(poolId) returns (uint256) {
+    return _userVotes[poolId][account];
   }
 
-  function lastTimeRewardsApplicable(address rewardToken) public view onlyValidRewardToken(rewardToken) returns (uint256) {
-    return Math.min(block.timestamp, periodFinish[rewardToken]);
+  function lastTimeBribesApplicable(uint256 poolId) public view onlyValidVotingPool(poolId) returns (uint256) {
+    return Math.min(block.timestamp, periodFinish[poolId]);
   }
 
-  function rewardsPerToken(address rewardToken) public view onlyValidRewardToken(rewardToken) returns (uint256) {
-    if (_totalSupply == 0) {
-      return rewardsPerTokenStored[rewardToken];
+  function bribesPerToken(uint256 poolId) public view onlyValidVotingPool(poolId) returns (uint256) {
+    if (_totalVotes[poolId] == 0) {
+      return bribesPerTokenStored[poolId];
     }
     return
-      rewardsPerTokenStored[rewardToken].add(
-        lastTimeRewardsApplicable(rewardToken)
-          .sub(lastUpdateTime[rewardToken])
-          .mul(rewardRates[rewardToken])
+      bribesPerTokenStored[poolId].add(
+        lastTimeBribesApplicable(poolId)
+          .sub(lastUpdateTime[poolId])
+          .mul(bribeRates[poolId])
           .mul(1e18)
-        .div(_totalSupply)
+        .div(_totalVotes[poolId])
       );
   }
 
-  function earned(address account, address rewardToken) public view onlyValidRewardToken(rewardToken) returns (uint256) {
+  function earned(uint256 poolId, address account) public view onlyValidVotingPool(poolId) returns (uint256) {
     return
-      _balances[account]
-        .mul(rewardsPerToken(rewardToken).sub(userRewardsPerTokenPaid[account][rewardToken]))
+      _userVotes[poolId][account]
+        .mul(bribesPerToken(poolId).sub(userBribesPerTokenPaid[poolId][account]))
         .div(1e18)
-        .add(rewards[account][rewardToken]);
-  }
-
-  function isSupportedRewardToken(address rewardToken) public view returns (bool) {
-    return _rewardTokensSet.contains(rewardToken);
+        .add(bribes[poolId][account]);
   }
 
   /// @dev No guarantees are made on the ordering
-  function rewardTokens() public view returns (address[] memory) {
-    return _rewardTokensSet.values();
+  function bribers() public view returns (address[] memory) {
+    return _bribersSet.values();
   }
 
-  /// @dev No guarantees are made on the ordering
-  function rewarders() public view returns (address[] memory) {
-    return _rewardersSet.values();
-  }
-
-  function velsdLockedCount(address user) public view returns (uint256) {
-    return _userVelsdLocked[user].length();
-  }
-
-  function velsdLockedInfoByIndex(address user, uint256 index) public view returns (VelsdLocked memory) {
-    require(index < velsdLockedCount(user), "Index out of bounds");
-
-    DoubleEndedQueue.Bytes32Deque storage userLocked = _userVelsdLocked[user];
-    uint256 lockId = uint256(userLocked.at(index));
-    return _allVelsdLocked[lockId];
-  }
 
   /* ========== MUTATIVE FUNCTIONS ========== */
 
-  function depositAndLockToken(uint256 amount) external nonReentrant updateAllRewards(_msgSender()) {
-    require(amount > 0, "Cannot deposit 0");
-
-    _totalSupply = _totalSupply.add(amount);
-    _balances[_msgSender()] = _balances[_msgSender()].add(amount);
-
-    lsdToken.safeTransferFrom(_msgSender(), address(this), amount);
-    velsdToken.mint(_msgSender(), amount);
-
-    _nextLockId.increment();
-    uint256 lockId = _nextLockId.current();
-    VelsdLocked memory lock = VelsdLocked({
-      lockId: lockId,
-      amount: amount,
-      depositTime: block.timestamp
-    });
-    _allVelsdLocked[lockId] = lock;
-    DoubleEndedQueue.Bytes32Deque storage userLocked = _userVelsdLocked[_msgSender()];
-    userLocked.pushBack(bytes32(lockId));
-
-    emit Deposited(_msgSender(), amount);
+  function vote(uint256 poolId, uint256 amount) external virtual payable nonReentrant onlyValidVotingPool(poolId) updateBribeAmounts(poolId, _msgSender()) {
+    require(amount > 0, "Cannot stake 0");
+    _totalVotes[poolId] = _totalVotes[poolId].add(amount);
+    _userVotes[poolId][_msgSender()] = _userVotes[poolId][_msgSender()].add(amount);
+    IERC20(votingToken).safeTransferFrom(_msgSender(), address(this), amount);
+    emit Voted(poolId, _msgSender(), amount);
   }
 
-  function withdrawFirstSumOfLockedToken() public nonReentrant updateAllRewards(_msgSender()) {
-    DoubleEndedQueue.Bytes32Deque storage userLocked = _userVelsdLocked[_msgSender()];
-    require(!userLocked.empty(), "No deposit to withdraw");
-
-    uint256 lockId = uint256(userLocked.front());
-    VelsdLocked memory lock = _allVelsdLocked[lockId];
-    uint256 amount = lock.amount;
-    userLocked.popFront();
-    delete _allVelsdLocked[lockId];
-
-    if (amount > 0) {
-      _totalSupply = _totalSupply.sub(amount);
-      _balances[_msgSender()] = _balances[_msgSender()].sub(amount);
-
-      uint256 fee = calcAdminFee(lock);
-      uint256 netAmount = amount.sub(fee);     
-       
-      lsdToken.safeTransfer(_msgSender(), netAmount);
-      velsdToken.burnFrom(_msgSender(), amount);
-      emit Withdrawn(_msgSender(), amount, fee);
-
-      if (fee > 0) {
-        _adminFee = _adminFee.add(fee);
-        emit AdminFeeAccrued(_msgSender(), amount, fee);
-      }
-    }
+  function withdraw(uint256 poolId, uint256 amount) public virtual nonReentrant onlyValidVotingPool(poolId) updateBribeAmounts(poolId, _msgSender()) {
+    require(amount > 0, "Cannot withdraw 0");
+    _totalVotes[poolId] = _totalVotes[poolId].sub(amount);
+    _userVotes[poolId][_msgSender()] = _userVotes[poolId][_msgSender()].sub(amount);
+    IERC20(votingToken).safeTransfer(_msgSender(), amount);
+    emit Withdrawn(poolId, _msgSender(), amount);
   }
 
-  function calcAdminFee(VelsdLocked memory lock) public view returns (uint256) {
-    require(lock.depositTime < block.timestamp, "Invalid deposit time");
-    require(lock.amount > 0, "Invalid deposit amount");
-
-    uint256 period = block.timestamp.sub(lock.depositTime);
-    if (period < 7 days) {
-      return lock.amount.mul(90).div(100);
-    }
-    else if (period < 30 days) {
-      return lock.amount.mul(50).div(100);
-    }
-    else if (period < 90 days) {
-      return lock.amount.mul(35).div(100);
-    }
-    else if (period < 180 days) {
-      return lock.amount.mul(20).div(100);
-    }
-    else if (period < 365 days) {
-      return lock.amount.mul(10).div(100);
-    }
-    else {
-      return 0;
-    }
-  }
-
-  function getRewards() public nonReentrant updateAllRewards(_msgSender()) {
-    for (uint256 i = 0; i < _rewardTokensSet.length(); i++) {
-      address currentToken = _rewardTokensSet.at(i);
-      uint256 reward = rewards[_msgSender()][currentToken];
+  function getBribes() public nonReentrant updateAllBribeAmounts(_msgSender()) {
+    for (uint256 i = 0; i < _votingPoolIds.length(); i++) {
+      uint256 poolId = _votingPoolIds.at(i);
+      VotingPool storage pool = _votingPools[poolId];
+      // Update deprecated pools as well
+      uint256 reward = bribes[poolId][_msgSender()];
       if (reward > 0) {
-        rewards[_msgSender()][currentToken] = 0;
-        IERC20(currentToken).safeTransfer(_msgSender(), reward);
-        emit RewardsPaid(_msgSender(), currentToken, reward);
+        bribes[poolId][_msgSender()] = 0;
+        IERC20(pool.bribeToken).safeTransfer(_msgSender(), reward);
+        emit BribePaid(poolId, _msgSender(), reward);
       }
     }
-  }
-
-  function exitFirstSumOfLockedToken() external {
-    withdrawFirstSumOfLockedToken();
-    getRewards();
   }
 
   /* ========== RESTRICTED FUNCTIONS ========== */
 
-  function addRewarder(address rewarder) public nonReentrant onlyOwner {
-    require(rewarder != address(0), "Zero address detected");
-    require(!_rewardersSet.contains(rewarder), "Already added");
+  function addVotingPool(string memory name, address bribeToken) external nonReentrant onlyOwner {
+    require(bribeToken != address(0), "Zero address detected");
 
-    _rewardersSet.add(rewarder);
-    emit RewarderAdded(rewarder);
+    _nextVotingPoolId.increment();
+    uint256 poolId = _nextVotingPoolId.current();
+
+    VotingPool memory pool = VotingPool({
+      id: poolId,
+      deprecated: false,
+      name: name,
+      bribeToken: bribeToken
+    });
+    _votingPools[poolId] = pool;
+    _votingPoolIds.add(poolId);
+    emit VotingPoolAdded(pool.id, pool.name, pool.bribeToken);
   }
 
-  function removeRewarder(address rewarder) public nonReentrant onlyOwner {
-    require(_rewardersSet.contains(rewarder), "Not a rewarder");
-    require(_rewardersSet.remove(rewarder), "Failed to remove rewarder");
-    emit RewarderRemoved(rewarder);
+  function deprecateVotingPool(uint256 poolId, bool deprecated) external nonReentrant onlyOwner {
+    require(_votingPoolIds.contains(poolId), "Invalid pool id");
+
+    VotingPool storage pool = _votingPools[poolId];
+    require(pool.deprecated != deprecated, "Same deprecate status");
+    pool.deprecated = deprecated;
+    emit VotingPoolDeprecated(pool.id, deprecated);
   }
 
-  function addRewardToken(address rewardToken) public nonReentrant onlyOwner {
-    require(rewardToken != address(0), "Zero address detected");
-    require(!_rewardTokensSet.contains(rewardToken), "Already added");
-    _rewardTokensSet.add(rewardToken);
-    emit RewardTokenAdded(rewardToken);
+  function addBriber(address briber) public nonReentrant onlyOwner {
+    require(briber != address(0), "Zero address detected");
+    require(!_bribersSet.contains(briber), "Already added");
+
+    _bribersSet.add(briber);
+    emit BriberAdded(briber);
   }
 
-  function addRewards(address rewardToken, uint256 rewardAmount, uint256 durationInDays) external nonReentrant onlyValidRewardToken(rewardToken) onlyRewarder {
-    require(rewardAmount > 0, "Reward amount should be greater than 0");
-    require(durationInDays > 0, 'Reward duration too short');
-
-    uint256 rewardDuration = durationInDays.mul(1 days);
-    IERC20(rewardToken).safeTransferFrom(_msgSender(), address(this), rewardAmount);
-    _notifyRewardsAmount(rewardToken, rewardAmount, rewardDuration);
+  function removeBriber(address briber) public nonReentrant onlyOwner {
+    require(_bribersSet.contains(briber), "Not a briber");
+    require(_bribersSet.remove(briber), "Failed to remove briber");
+    emit BriberRemoved(briber);
   }
 
-  function _notifyRewardsAmount(address rewardToken, uint256 reward, uint256 rewardDuration) internal virtual onlyRewarder updateRewards(address(0), rewardToken) {
-    if (block.timestamp >= periodFinish[rewardToken]) {
-      rewardRates[rewardToken] = reward.div(rewardDuration);
+  function bribe(uint256 poolId, uint256 bribeAmount) external nonReentrant onlyValidVotingPool(poolId) onlyBriber {
+    require(bribeAmount > 0, "Bribe amount should be greater than 0");
+
+    VotingPool storage pool = _votingPools[poolId];
+    IERC20(pool.bribeToken).safeTransferFrom(_msgSender(), address(this), bribeAmount);
+    _notifyBribeAmount(poolId, bribeAmount, flashRewardDuration);
+  }
+
+  function _notifyBribeAmount(uint256 poolId, uint256 bribeAmount, uint256 rewardDuration) internal virtual onlyBriber updateBribeAmounts(poolId, address(0)) {
+    if (block.timestamp >= periodFinish[poolId]) {
+      bribeRates[poolId] = bribeAmount.div(rewardDuration);
     }
     else {
-      uint256 remaining = periodFinish[rewardToken].sub(block.timestamp);
-      uint256 leftover = remaining.mul(rewardRates[rewardToken]);
-      rewardRates[rewardToken] = reward.add(leftover).div(rewardDuration);
+      uint256 remaining = periodFinish[poolId].sub(block.timestamp);
+      uint256 leftover = remaining.mul(bribeRates[poolId]);
+      bribeRates[poolId] = bribeAmount.add(leftover).div(rewardDuration);
     }
 
-    uint balance = IERC20(rewardToken).balanceOf(address(this));
-    require(rewardRates[rewardToken] <= balance.div(rewardDuration), "Provided reward too high");
+    VotingPool storage pool = _votingPools[poolId];
+    uint balance = IERC20(pool.bribeToken).balanceOf(address(this));
+    require(bribeRates[poolId] <= balance.div(rewardDuration), "Provided bribe too high");
 
-    lastUpdateTime[rewardToken] = block.timestamp;
-    periodFinish[rewardToken] = block.timestamp.add(rewardDuration);
-    emit RewardsAdded(rewardToken, _msgSender(), reward, rewardDuration);
-  }
-
-  function adminFee() external view returns (uint256) {
-    return _adminFee;
-  }
-
-  function withdrawAdminFee(address to) external nonReentrant onlyRewarder {
-    require(_adminFee > 0, 'No admin fee to withdraw');
-
-    lsdToken.safeTransfer(to, _adminFee);
-    emit AdminFeeWithdrawn(_msgSender(), to, _adminFee);
-
-    _adminFee = 0;
+    lastUpdateTime[poolId] = block.timestamp;
+    periodFinish[poolId] = block.timestamp.add(rewardDuration);
+    emit BribeAdded(poolId, _msgSender(), bribeAmount);
   }
 
   /* ========== MODIFIERS ========== */
 
-  modifier onlyRewarder() {
-    require(_rewardersSet.contains(_msgSender()), "Not a rewarder");
+  modifier onlyBriber() {
+    require(_bribersSet.contains(_msgSender()), "Not a briber");
     _;
   }
 
-  modifier onlyValidRewardToken(address rewardToken) {
-    require(isSupportedRewardToken(rewardToken), "Reward token not supported");
+  modifier onlyValidVotingPool(uint256 poolId) {
+    require(_votingPoolIds.contains(poolId), "Invalid voting pool");
     _;
   }
 
-  modifier updateRewards(address account, address rewardToken) {
-    _updateRewards(account, rewardToken);
+  modifier updateBribeAmounts(uint256 poolId, address account) {
+    _updateBribeAmounts(poolId, account);
     _;
   }
 
-  modifier updateAllRewards(address account) {
-    for (uint256 i = 0; i < _rewardTokensSet.length(); i++) {
-      address rewardToken = _rewardTokensSet.at(i);
-      _updateRewards(account, rewardToken);
+  modifier updateAllBribeAmounts(address account) {
+    for (uint256 i = 0; i < _votingPoolIds.length(); i++) {
+      uint256 poolId = _votingPoolIds.at(i);
+      // Update deprecated pools as well
+      _updateBribeAmounts(poolId, account);
     }
     _;
   }
 
-  function _updateRewards(address account, address rewardToken) internal {
-    require(isSupportedRewardToken(rewardToken), "Reward token not supported");
-    rewardsPerTokenStored[rewardToken] = rewardsPerToken(rewardToken);
-    lastUpdateTime[rewardToken] = lastTimeRewardsApplicable(rewardToken);
+  function _updateBribeAmounts(uint256 poolId, address account) internal {
+    require(_votingPoolIds.contains(poolId), "Invalid voting pool");
+
+    bribesPerTokenStored[poolId] = bribesPerToken(poolId);
+    lastUpdateTime[poolId] = lastTimeBribesApplicable(poolId);
     if (account != address(0)) {
-      rewards[account][rewardToken] = earned(account, rewardToken);
-      userRewardsPerTokenPaid[account][rewardToken] = rewardsPerTokenStored[rewardToken];
+      bribes[poolId][account] = earned(poolId, account);
+      userBribesPerTokenPaid[poolId][account] = bribesPerTokenStored[poolId];
     }
   }
 
   /* ========== EVENTS ========== */
-
-  event Deposited(address indexed user, uint256 amount);
-  event Withdrawn(address indexed user, uint256 totalAmount, uint256 fee);
-  event RewardsPaid(address indexed user, address indexed rewardToken, uint256 reward);
-  event RewardTokenAdded(address indexed rewardToken);
-  event RewardsAdded(address indexed rewardToken, address indexed rewarder, uint256 reward, uint256 rewardDuration);
-  event RewarderAdded(address indexed rewarder);
-  event RewarderRemoved(address indexed rewarder);
-  event AdminFeeAccrued(address indexed user, uint256 totalAmount, uint256 fee);
-  event AdminFeeWithdrawn(address indexed rewarder, address indexed to, uint256 amount);
+  event Voted(uint256 indexed poolId, address indexed user, uint256 amount);
+  event Withdrawn(uint256 indexed poolId, address indexed user, uint256 amount);
+  event BribePaid(uint256 indexed poolId, address indexed user, uint256 reward);
+  event BribeAdded(uint256 indexed poolId, address indexed briber, uint256 bribeAmount);
+  event VotingPoolAdded(uint256 indexed poolId, string name, address bribeToken);
+  event VotingPoolDeprecated(uint256 indexed poolId, bool deprecated);
+  event BriberAdded(address indexed briber);
+  event BriberRemoved(address indexed rewarder);
 }
