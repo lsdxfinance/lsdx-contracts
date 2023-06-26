@@ -2,6 +2,6 @@
 pragma solidity ^0.8.9;
 
 interface IRewardBooster {
-  function getBoostRate(address account, uint256 ethxAmount) external view returns (uint256);
-  function tryUpdateOracle() external;
+  function stakeFor(address user, uint256 amount) external;
+  function getBoostRate(address user, uint256 ethxAmount) external view returns (uint256);
 }

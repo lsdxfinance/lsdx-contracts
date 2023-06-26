@@ -10,14 +10,21 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import '@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol';
+import '@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol';
+
+import "./interfaces/IRewardBooster.sol";
 
 contract esLSD is Ownable, ReentrancyGuard, ERC20("esLSD Token", "esLSD") {
   using Address for address;
   using SafeMath for uint256;
   using SafeERC20 for IERC20;
 
+  address public rewardBooster;
   IERC20 public immutable lsdToken;
-  address public zapDelegator;
+
+  IUniswapV2Router02 public uniswapV2Router;
+  IUniswapV2Pair public lsdEthPair;
 
   uint256 public vestingPeriod = 90 days;
 
@@ -29,9 +36,14 @@ contract esLSD is Ownable, ReentrancyGuard, ERC20("esLSD Token", "esLSD") {
     uint256 endTime;
   }
 
-  constructor(address _lsdToken) {
+  constructor(address _lsdToken, address _uniswapV2Router, address _lsdEthPair) Ownable() {
     require(_lsdToken != address(0), "Zero address detected");
+    require(_uniswapV2Router != address(0), "Zero address detected");
+    require(_lsdEthPair != address(0), "Zero address detected");
+
     lsdToken = IERC20(_lsdToken);
+    uniswapV2Router = IUniswapV2Router02(_uniswapV2Router);
+    lsdEthPair = IUniswapV2Pair(_lsdEthPair);
   }
 
   /*******************************************************/
@@ -120,19 +132,47 @@ contract esLSD is Ownable, ReentrancyGuard, ERC20("esLSD Token", "esLSD") {
     emit Vest(_msgSender(), amount, vestingInfo.amount, vestingPeriod);
   }
 
-  /**
-   * @dev Allow zap delegator to flash vest $esLSD tokens
-   * @param to  Account to flash vest $LSD tokens to
-   */
-  function zapVest(uint256 amount, address to) external nonReentrant onlyZapDelegator(_msgSender()) {
-    require(amount > 0, "Amount must be greater than 0");
-    require(to != address(0), "Zero address detected");
+  function zapVest() external payable nonReentrant {
+    require(rewardBooster != address(0), "Reward booster not set");
 
-    _transfer(_msgSender(), address(this), amount);
-    _burn(address(this), amount);
-    lsdToken.safeTransfer(to, amount);
+    VestingInfo storage vestingInfo = userVestings[_msgSender()];
+    require(vestingInfo.amount > 0, "No tokens to claim");
+    require(block.timestamp >= vestingInfo.startTime, "Vesting not started");
 
-    emit ZapVest(_msgSender(), to, amount);
+    uint256 unlocked = 0;
+    uint256 zapAmount = 0;
+    if (block.timestamp >= vestingInfo.endTime) {
+      unlocked = vestingInfo.amount;
+    }
+    else {
+      unlocked = vestingInfo.amount.mul(block.timestamp.sub(vestingInfo.startTime)).div(vestingInfo.endTime.sub(vestingInfo.startTime));
+      zapAmount = vestingInfo.amount.sub(unlocked);
+    }
+    require(zapAmount > 0, "No unlocked tokens to zap vest");
+
+    delete userVestings[_msgSender()];
+    if (unlocked > 0) {
+      lsdToken.safeTransfer(_msgSender(), unlocked);
+      _burn(address(this), unlocked);
+      emit Claim(_msgSender(), unlocked);
+    }
+
+    emit ZapVest(_msgSender(), zapAmount);
+
+    lsdToken.approve(address(uniswapV2Router), zapAmount);
+    (uint256 amountLSD, , uint256 amountLP) = uniswapV2Router.addLiquidityETH{value: msg.value}(address(lsdToken), zapAmount, zapAmount, 0, address(this), block.timestamp);
+    require(amountLSD == zapAmount, "Incorrect amount of LSD tokens");
+
+    lsdEthPair.approve(rewardBooster, amountLP);
+    IRewardBooster(rewardBooster).stakeFor(_msgSender(), amountLP);
+  }
+
+  /********************************************/
+  /*********** RESTRICTED FUNCTIONS ***********/
+  /********************************************/
+  function setRewardBooster(address _rewardBooster) external onlyOwner {
+    require(_rewardBooster != address(0), "Zero address detected");
+    rewardBooster = _rewardBooster;
   }
 
 
@@ -161,35 +201,12 @@ contract esLSD is Ownable, ReentrancyGuard, ERC20("esLSD Token", "esLSD") {
     }
   }
 
-  /*******************************************************/
-  /****************** RESTRICTED FUNCTIONS ***************/
-  /*******************************************************/
-
-  function setZapDelegator(address _zapDelegator) external nonReentrant onlyOwner {
-    require(_zapDelegator != address(0), "Zero address detected");
-    require(zapDelegator != _zapDelegator, "Same zap delegator");
-
-    address previousDelegator = zapDelegator;
-    zapDelegator = _zapDelegator;
-    emit UpdateZapDelegator(previousDelegator, zapDelegator);
-  }
-
-  /***********************************************/
-  /****************** MODIFIERS ******************/
-  /***********************************************/
-
-  modifier onlyZapDelegator(address _address) {
-    require(zapDelegator == _address, "Not zap delegator");
-    _;
-  }
-
   /********************************************/
   /****************** EVENTS ******************/
   /********************************************/
 
-  event UpdateZapDelegator(address previousDelegator, address delegator);
   event Escrow(address indexed userAddress, uint256 amount);
   event Claim(address indexed userAddress, uint256 amount);
   event Vest(address indexed userAddress, uint256 amount, uint256 accruedAmount, uint256 period);
-  event ZapVest(address indexed fromAddress, address toAddress, uint256 amount);
+  event ZapVest(address indexed userAddress, uint256 amount);
 }

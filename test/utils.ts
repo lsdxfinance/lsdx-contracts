@@ -21,7 +21,7 @@ import {
   StableSwapETHxPool__factory,
   BoostableFarm__factory,
   RewardBooster__factory,
-  UniswapV2PairOracle__factory
+  Votes__factory
 } from '../typechain';
 
 const { provider } = ethers;
@@ -91,10 +91,6 @@ export async function deployLsdxV2ContractsFixture() {
   const lsdCoinProxy = await upgrades.deployProxy(LsdCoin, []);
   const lsdCoin = LsdCoin__factory.connect(lsdCoinProxy.address, provider);
 
-  const EsLSD = await ethers.getContractFactory('esLSD');
-  const EsLSDContract = await EsLSD.deploy(lsdCoin.address);
-  const esLSD = EsLSD__factory.connect(EsLSDContract.address, provider);
-
   const TestERC20 = await ethers.getContractFactory('TestERC20');
   const erc20Proxy = await upgrades.deployProxy(TestERC20, ['ETHx Token', 'ETHx']);
   const ethx = TestERC20__factory.connect(erc20Proxy.address, provider);
@@ -129,6 +125,10 @@ export async function deployLsdxV2ContractsFixture() {
   const uniPairAddress = await uniswapV2Factory.getPair(lsdCoin.address, weth.address);
   const lsdEthPair = UniswapV2Pair__factory.connect(uniPairAddress, provider);
 
+  const EsLSD = await ethers.getContractFactory('esLSD');
+  const EsLSDContract = await EsLSD.deploy(lsdCoin.address, uniswapV2Router02.address, lsdEthPair.address);
+  const esLSD = EsLSD__factory.connect(EsLSDContract.address, provider);
+
   const BoostableFarm = await ethers.getContractFactory('BoostableFarm');
   const BoostableFarmContract = await BoostableFarm.deploy(esLSD.address, ethx.address);
   const boostableFarm = BoostableFarm__factory.connect(BoostableFarmContract.address, provider);
@@ -137,15 +137,18 @@ export async function deployLsdxV2ContractsFixture() {
   const RewardBoosterContract = await RewardBooster.deploy(lsdEthPair.address, ethxPool.address, boostableFarm.address, esLSD.address);
   const rewardBooster = RewardBooster__factory.connect(RewardBoosterContract.address, provider);
 
-  const lsdEthPairOracle = UniswapV2PairOracle__factory.connect(await rewardBooster.lsdEthOracle(), provider);
 
   trans = await boostableFarm.connect(Alice).setRewardBooster(rewardBooster.address);
   await trans.wait();
 
-  trans = await esLSD.connect(Alice).setZapDelegator(rewardBooster.address);
+  trans = await esLSD.connect(Alice).setRewardBooster(rewardBooster.address);
   await trans.wait();
 
-  return { lsdCoin, esLSD, weth, ethx, lsdEthPair, ethxPool, boostableFarm, rewardBooster, lsdEthPairOracle, Alice, Bob, Caro, Dave };
+  const Votes = await ethers.getContractFactory('Votes');
+  const VotesContract = await Votes.deploy(esLSD.address);
+  const votes = Votes__factory.connect(VotesContract.address, provider);
+
+  return { lsdCoin, esLSD, weth, ethx, lsdEthPair, ethxPool, boostableFarm, rewardBooster, uniswapV2Router02, votes, Alice, Bob, Caro, Dave };
 }
 
 export function expandTo18Decimals(n: number) {

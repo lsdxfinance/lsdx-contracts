@@ -27,12 +27,6 @@ contract Votes is Ownable, ReentrancyGuard {
   Counters.Counter private _nextVotingPoolId;
   EnumerableSet.UintSet private _votingPoolIds;
   mapping(uint256 => VotingPool) private _votingPools;
-  struct VotingPool {
-    uint256 id;
-    bool deprecated;
-    string name;
-    address bribeToken;
-  }
 
   mapping(uint256 => uint256) private _totalVotes;
   mapping(uint256 => mapping(address => uint256)) private _userVotes;
@@ -42,6 +36,18 @@ contract Votes is Ownable, ReentrancyGuard {
   mapping(uint256 => uint256) public bribeRewardsPerToken;
   mapping(uint256 => mapping(address => uint256)) public userBribeRewardsPerTokenPaid;
   mapping(uint256 => mapping(address => uint256)) public userBribeRewards;
+
+  struct VotingPool {
+    uint256 id;
+    bool deprecated;
+    string name;
+    address bribeToken;
+  }
+
+  struct BatchVoteParams {
+    uint256 poolId;
+    uint256 amount;
+  }
 
   /* ========== CONSTRUCTOR ========== */
 
@@ -55,7 +61,12 @@ contract Votes is Ownable, ReentrancyGuard {
 
   /* ========== VIEWS ========== */
 
-  function getVotingPools(bool activeOnly) public view returns (VotingPool[] memory) {
+  function getVotingPool(uint256 poolId) public view returns (VotingPool memory) {
+    require(_votingPoolIds.contains(poolId), "Invalid pool id");
+    return _votingPools[poolId];
+  }
+
+  function getAllVotingPools(bool activeOnly) public view returns (VotingPool[] memory) {
     uint256 count = 0;
     for (uint256 i = 0; i < _votingPoolIds.length(); i++) {
       uint256 poolId = _votingPoolIds.at(i);
@@ -100,7 +111,7 @@ contract Votes is Ownable, ReentrancyGuard {
 
   /* ========== MUTATIVE FUNCTIONS ========== */
 
-  function vote(uint256 poolId, uint256 amount) external virtual payable nonReentrant onlyValidVotingPool(poolId, true) updateBribeAmounts(poolId, _msgSender()) {
+  function vote(uint256 poolId, uint256 amount) public nonReentrant onlyValidVotingPool(poolId, true) updateBribeAmounts(poolId, _msgSender()) {
     require(amount > 0, "Cannot vote 0");
     _totalVotes[poolId] = _totalVotes[poolId].add(amount);
     _userVotes[poolId][_msgSender()] = _userVotes[poolId][_msgSender()].add(amount);
@@ -108,12 +119,30 @@ contract Votes is Ownable, ReentrancyGuard {
     emit Voted(poolId, _msgSender(), amount);
   }
 
-  function unvote(uint256 poolId, uint256 amount) public virtual nonReentrant onlyValidVotingPool(poolId, false) updateBribeAmounts(poolId, _msgSender()) {
+  function batchVote(BatchVoteParams[] calldata votes) external nonReentrant {
+    require(votes.length > 0, "Empty params");
+
+    for (uint256 i = 0; i < votes.length; i++) {
+      vote(votes[i].poolId, votes[i].amount);
+    }
+  }
+
+  function unvote(uint256 poolId, uint256 amount) public nonReentrant onlyValidVotingPool(poolId, false) updateBribeAmounts(poolId, _msgSender()) {
     require(amount > 0, "Cannot unvote 0");
     _totalVotes[poolId] = _totalVotes[poolId].sub(amount);
     _userVotes[poolId][_msgSender()] = _userVotes[poolId][_msgSender()].sub(amount);
     IERC20(votingToken).safeTransfer(_msgSender(), amount);
     emit Unvoted(poolId, _msgSender(), amount);
+  }
+
+  function unvoteAll() external nonReentrant {
+    for (uint256 i = 0; i < _votingPoolIds.length(); i++) {
+      uint256 poolId = _votingPoolIds.at(i);
+      uint256 amount = _userVotes[poolId][_msgSender()];
+      if (amount > 0) {
+        unvote(poolId, amount);
+      }
+    }
   }
 
   function getBribeRewards(uint256 poolId) public nonReentrant onlyValidVotingPool(poolId, false) updateBribeAmounts(poolId, _msgSender()) {

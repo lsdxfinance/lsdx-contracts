@@ -36,8 +36,6 @@ contract FlashFarm is Ownable, ReentrancyGuard {
     stakingToken = IERC20(_stakingToken);
   }
 
-  receive() external payable virtual {}
-
   /* ========== VIEWS ========== */
 
   function totalSupply() external view returns (uint256) {
