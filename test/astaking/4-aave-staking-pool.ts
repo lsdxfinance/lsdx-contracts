@@ -6,7 +6,7 @@ import { loadFixture } from '@nomicfoundation/hardhat-network-helpers';
 import { anyValue } from '@nomicfoundation/hardhat-chai-matchers/withArgs';
 import { Pool__factory } from '../../typechain/factories/contracts/test/AToken.sol/Pool__factory';
 import { AToken__factory } from '../../typechain/factories/contracts/test/AToken.sol/AToken__factory';
-import { AaveStakingPool__factory } from '../../typechain/factories/contracts/staking-v2/AaveStakingPool__factory';
+import { AaveStakingPool__factory } from '../../typechain';
 import { ONE_DAY_IN_SECS, deployLsdxContractsFixture, expandTo18Decimals, expectBigNumberEquals } from '../utils';
 
 const { provider } = ethers;
