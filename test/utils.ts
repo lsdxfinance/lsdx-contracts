@@ -134,9 +134,8 @@ export async function deployLsdxV2ContractsFixture() {
   const boostableFarm = BoostableFarm__factory.connect(BoostableFarmContract.address, provider);
 
   const RewardBooster = await ethers.getContractFactory('RewardBooster');
-  const RewardBoosterContract = await RewardBooster.deploy(lsdEthPair.address, ethxPool.address, boostableFarm.address, esLSD.address);
+  const RewardBoosterContract = await RewardBooster.deploy(lsdEthPair.address, ethxPool.address, boostableFarm.address);
   const rewardBooster = RewardBooster__factory.connect(RewardBoosterContract.address, provider);
-
 
   trans = await boostableFarm.connect(Alice).setRewardBooster(rewardBooster.address);
   await trans.wait();

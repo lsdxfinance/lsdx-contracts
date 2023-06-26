@@ -14,6 +14,7 @@ import '@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol';
 import '@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol';
 
 import "./interfaces/IRewardBooster.sol";
+import "../lib/CurrencyTransferLib.sol";
 
 contract esLSD is Ownable, ReentrancyGuard, ERC20("esLSD Token", "esLSD") {
   using Address for address;
@@ -45,6 +46,8 @@ contract esLSD is Ownable, ReentrancyGuard, ERC20("esLSD Token", "esLSD") {
     uniswapV2Router = IUniswapV2Router02(_uniswapV2Router);
     lsdEthPair = IUniswapV2Pair(_lsdEthPair);
   }
+
+  receive() external payable virtual {}
 
   /*******************************************************/
   /****************** MUTATIVE FUNCTIONS *****************/
@@ -134,6 +137,7 @@ contract esLSD is Ownable, ReentrancyGuard, ERC20("esLSD Token", "esLSD") {
 
   function zapVest() external payable nonReentrant {
     require(rewardBooster != address(0), "Reward booster not set");
+    require(IRewardBooster(rewardBooster).canStake(_msgSender()), "Too many stakes");
 
     VestingInfo storage vestingInfo = userVestings[_msgSender()];
     require(vestingInfo.amount > 0, "No tokens to claim");
@@ -150,21 +154,25 @@ contract esLSD is Ownable, ReentrancyGuard, ERC20("esLSD Token", "esLSD") {
     }
     require(zapAmount > 0, "No unlocked tokens to zap vest");
 
-    delete userVestings[_msgSender()];
     if (unlocked > 0) {
       lsdToken.safeTransfer(_msgSender(), unlocked);
       _burn(address(this), unlocked);
       emit Claim(_msgSender(), unlocked);
     }
 
-    emit ZapVest(_msgSender(), zapAmount);
-
+    _burn(address(this), zapAmount);
     lsdToken.approve(address(uniswapV2Router), zapAmount);
-    (uint256 amountLSD, , uint256 amountLP) = uniswapV2Router.addLiquidityETH{value: msg.value}(address(lsdToken), zapAmount, zapAmount, 0, address(this), block.timestamp);
+    (uint256 amountLSD, uint256 amountETH, uint256 amountLP) = uniswapV2Router.addLiquidityETH{value: msg.value}(address(lsdToken), zapAmount, zapAmount, 0, address(this), block.timestamp);
     require(amountLSD == zapAmount, "Incorrect amount of LSD tokens");
+    if (msg.value > amountETH) {
+      CurrencyTransferLib.transferCurrency(CurrencyTransferLib.NATIVE_TOKEN, address(this), _msgSender(), msg.value.sub(amountETH));
+    }
 
     lsdEthPair.approve(rewardBooster, amountLP);
     IRewardBooster(rewardBooster).stakeFor(_msgSender(), amountLP);
+    emit ZapVest(_msgSender(), zapAmount);
+
+    delete userVestings[_msgSender()];
   }
 
   /********************************************/

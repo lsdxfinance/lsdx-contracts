@@ -1,7 +1,6 @@
 import _ from 'lodash';
 import { ethers } from 'hardhat';
 import { expect } from 'chai';
-import { anyValue } from '@nomicfoundation/hardhat-chai-matchers/withArgs';
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 import { loadFixture } from '@nomicfoundation/hardhat-network-helpers';
 import { ONE_DAY_IN_SECS, deployLsdxV2ContractsFixture, expandTo18Decimals, expectBigNumberEquals } from '../utils';
@@ -22,8 +21,7 @@ describe('esLSD Token', () => {
       .to.emit(esLSD, 'Transfer').withArgs(ethers.constants.AddressZero, Bob.address, esBalance)
       .to.emit(esLSD, 'Escrow').withArgs(Bob.address, esBalance);
     expect(await esLSD.balanceOf(Bob.address)).to.equal(esBalance);
-    expect(await esLSD.totalSupply()).to.equal(esBalance);
-    expect(await lsdCoin.balanceOf(esLSD.address)).to.equal(esBalance);
+    expect(await esLSD.totalSupply()).to.equal(await lsdCoin.balanceOf(esLSD.address));
 
     // Day 0
     const genesisTime = await time.latest();
@@ -44,6 +42,7 @@ describe('esLSD Token', () => {
     expect(vestInfo.endTime).to.equal(vestTimestamp + vestPeirod90days);
     expect(await esLSD.claimableAmount(Bob.address)).to.equal(0);
     expect(await esLSD.balanceOf(esLSD.address)).to.equal(vestAmount);
+    expect(await esLSD.totalSupply()).to.equal(await lsdCoin.balanceOf(esLSD.address));
 
     // Day 9. 10% of the vest should be unlocked
     await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 9);
@@ -62,6 +61,7 @@ describe('esLSD Token', () => {
     expect(vestInfo2.startTime).to.equal(claimTimestamp);
     expect(vestInfo2.endTime).to.equal(vestInfo.endTime);
     expect(await esLSD.claimableAmount(Bob.address)).to.equal(0);
+    expect(await esLSD.totalSupply()).to.equal(await lsdCoin.balanceOf(esLSD.address));
 
     // Day 18. Anther 10% of the vest should be unlocked
     await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 18);
@@ -81,6 +81,7 @@ describe('esLSD Token', () => {
     expect(vestInfo3.amount).to.equal(vestAmount2.add(vestAmount.div(10).mul(8)));
     expect(vestInfo3.startTime).to.equal(vestTimestamp2);
     expect(vestInfo3.endTime).to.equal(vestTimestamp2 + vestPeirod90days);
+    expect(await esLSD.totalSupply()).to.equal(await lsdCoin.balanceOf(esLSD.address));
 
     // Fast-forward and claim all
     await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 120);
@@ -92,33 +93,7 @@ describe('esLSD Token', () => {
       .to.emit(esLSD, 'Claim').withArgs(Bob.address, unlockedAmount3);
     expect(await esLSD.claimableAmount(Bob.address)).to.equal(0);
     await expect(esLSD.connect(Bob).claim()).to.be.rejectedWith(/No tokens to claim/);
-  });
-
-  it('Zap Vest', async () => {
-
-    const { lsdCoin, esLSD, Alice, Bob, Caro } = await loadFixture(deployLsdxV2ContractsFixture);
-
-    // Bob: 10_000
-    const esBalance = expandTo18Decimals(10_000);
-    await expect(lsdCoin.connect(Alice).mint(Bob.address, esBalance)).not.to.be.reverted;
-    await expect(lsdCoin.connect(Bob).approve(esLSD.address, esBalance)).not.to.be.reverted;
-    await expect(esLSD.connect(Bob).escrow(esBalance)).not.to.be.rejected;
-
-    // Bob could not zap vest
-    const vestAmount = expandTo18Decimals(1000);
-    await expect(esLSD.connect(Bob).zapVest(vestAmount, Caro.address)).to.be.rejectedWith(/Not zap delegator/);
-
-    // Set Bob as zap delegator. This is only for testing.
-    await expect(esLSD.connect(Bob).setZapDelegator(Bob.address)).to.be.rejectedWith(/Ownable: caller is not the owner/);
-    await expect(await esLSD.connect(Alice).setZapDelegator(Bob.address))
-      .to.emit(esLSD, 'UpdateZapDelegator').withArgs(anyValue, Bob.address);
-
-    // Now Bob could zap vest
-    await expect(await esLSD.connect(Bob).zapVest(vestAmount, Caro.address))
-      .to.emit(esLSD, 'Transfer').withArgs(Bob.address, esLSD.address, vestAmount)
-      .to.emit(esLSD, 'Transfer').withArgs(esLSD.address, ethers.constants.AddressZero, vestAmount)
-      .to.emit(lsdCoin, 'Transfer').withArgs(esLSD.address, Caro.address, vestAmount)
-      .to.emit(esLSD, 'ZapVest').withArgs(Bob.address, Caro.address, vestAmount);
+    expect(await esLSD.totalSupply()).to.equal(await lsdCoin.balanceOf(esLSD.address));
   });
 
 });

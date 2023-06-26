@@ -37,8 +37,7 @@ contract RewardBooster is IRewardBooster, Ownable, ReentrancyGuard {
     uint256 endTime;
   }
 
-  constructor(address _uniswapV2Router, address _lsdEthPair, address _ethxPool, address _farm) Ownable() {
-    require(_uniswapV2Router != address(0), "Zero address detected");
+  constructor(address _lsdEthPair, address _ethxPool, address _farm) Ownable() {
     require(_lsdEthPair != address(0), "Zero address detected");
     require(_ethxPool != address(0), "Zero address detected");
     require(_farm != address(0), "Zero address detected");
@@ -51,6 +50,11 @@ contract RewardBooster is IRewardBooster, Ownable, ReentrancyGuard {
   /*******************************************************/
   /***********************  VIEWS ************************/
   /*******************************************************/
+
+  function canStake(address user) external view returns (bool) {
+    require(user != address(0), "Zero address detected");
+    return userStakes[user].length < MAX_STAKES_COUNT_PER_USER;
+  }
 
   /**
    * @dev Get the amount of LP tokens that can be unstaked for a user
@@ -93,7 +97,7 @@ contract RewardBooster is IRewardBooster, Ownable, ReentrancyGuard {
     stakeFor(_msgSender(), amount);
   }
 
-  function stakeFor(address user, uint256 amount) public nonReentrant {
+  function stakeFor(address user, uint256 amount) public {
     require(user != address(0), "Zero address detected");
     require(amount > 0, "Amount must be greater than 0");
     require(userStakes[user].length < MAX_STAKES_COUNT_PER_USER, "Too many stakes");
