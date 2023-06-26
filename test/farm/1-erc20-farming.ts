@@ -221,6 +221,67 @@ describe('Staking Pool', () => {
     expectBigNumberEquals(totalRewardPerDay, await lsdCoin.balanceOf(erc20Farm.address));
   });
 
+  it('Discontinued reward works', async () => {
+
+    const { lsdCoin, lsdxFarmFactory, erc20, Alice, Bob, Caro } = await loadFixture(deployLsdxContractsFixture);
+
+    // Deploy a staking pool, starting 1 day later, and lasts for 1 days
+    const rewardStartTime = (await time.latest()) + ONE_DAY_IN_SECS;
+    const rewardDurationInDays = 1;
+    await expect(lsdxFarmFactory.connect(Alice).deployFarm(erc20.address))
+      .to.emit(lsdxFarmFactory, 'FarmDeployed').withArgs(anyValue, erc20.address);
+    const erc20Farm = LsdxFarm__factory.connect(await lsdxFarmFactory.getFarmAddress(erc20.address), provider);
+  
+    await expect(erc20.connect(Alice).mint(Bob.address, expandTo18Decimals(10_000))).not.to.be.reverted;
+    await expect(erc20.connect(Alice).mint(Caro.address, expandTo18Decimals(10_000))).not.to.be.reverted;
+
+    // Bob stakes 800 $LSD, and Caro stakes 200 $LSD
+    let bobStakeAmount = expandTo18Decimals(800);
+    let caroStakeAmount = expandTo18Decimals(200);
+    await expect(erc20.connect(Bob).approve(erc20Farm.address, bobStakeAmount)).not.to.be.reverted;
+    await expect(erc20Farm.connect(Bob).stake(bobStakeAmount)).not.to.be.reverted;
+    await expect(erc20.connect(Caro).approve(erc20Farm.address, caroStakeAmount)).not.to.be.reverted;
+    await expect(erc20Farm.connect(Caro).stake(caroStakeAmount)).not.to.be.reverted;
+    expect(await erc20Farm.totalSupply()).to.equal(bobStakeAmount.add(caroStakeAmount));
+
+    // Fast-forward to reward start time, and deposit 1_000_000 $LSD as reward (1_000_000 per day)
+    await time.increaseTo(rewardStartTime);
+    const totalReward = expandTo18Decimals(1_000_000);
+    await expect(lsdCoin.connect(Alice).mint(Alice.address, totalReward)).not.to.be.reverted;
+    await expect(lsdCoin.connect(Alice).approve(lsdxFarmFactory.address, totalReward)).not.to.be.reverted;
+    await expect(lsdxFarmFactory.connect(Alice).addRewards(erc20.address, totalReward, rewardDurationInDays))
+      .to.emit(erc20Farm, 'RewardAdded').withArgs(totalReward, rewardDurationInDays);
+    // Note: The exact `reward start time` is the block timestamp of `addRewards` transaction,
+    // which does not exactly equal to `rewardStartTime`
+    expect(await erc20Farm.periodFinish()).to.equal(await time.latest() + ONE_DAY_IN_SECS * rewardDurationInDays);
+    expect((await lsdxFarmFactory.farmInfoByStakingToken(erc20.address)).totalRewardsAmount).to.equal(totalReward);
+
+    // Fast-forward to Day 2. Reward perioid finish
+    await time.increaseTo(rewardStartTime + ONE_DAY_IN_SECS * 2);
+
+    // Bob should get 4/5 rewards, and Caro should get 1/5 rewards
+    expectBigNumberEquals(totalReward.mul(4).div(5), await erc20Farm.earned(Bob.address));
+    expectBigNumberEquals(totalReward.mul(1).div(5), await erc20Farm.earned(Caro.address));
+
+    // Bob claim rewards
+    await expect(erc20Farm.connect(Bob).getReward())
+      .to.emit(erc20Farm, 'RewardPaid').withArgs(Bob.address, anyValue);
+    
+    // Fast-forward to Day 5, and start another round of reward
+    await time.increaseTo(rewardStartTime + ONE_DAY_IN_SECS * 5);
+    const round2Reward = expandTo18Decimals(2_000_000);
+    await expect(lsdCoin.connect(Alice).mint(Alice.address, round2Reward)).not.to.be.reverted;
+    await expect(lsdCoin.connect(Alice).approve(lsdxFarmFactory.address, round2Reward)).not.to.be.reverted;
+    await expect(lsdxFarmFactory.connect(Alice).addRewards(erc20.address, round2Reward, rewardDurationInDays))
+      .to.emit(erc20Farm, 'RewardAdded').withArgs(round2Reward, rewardDurationInDays);
+    expect((await lsdxFarmFactory.farmInfoByStakingToken(erc20.address)).totalRewardsAmount).to.equal(totalReward.add(round2Reward));
+
+    // Fast-forward to Day 7. Bob should get 4/5 rewards, and Caro should get 1/5 rewards
+    await time.increaseTo(rewardStartTime + ONE_DAY_IN_SECS * 7);
+    expectBigNumberEquals(round2Reward.mul(4).div(5), await erc20Farm.earned(Bob.address));
+    expectBigNumberEquals(totalReward.mul(1).div(5).add(round2Reward.mul(1).div(5)), await erc20Farm.earned(Caro.address));
+  });
+
   it('Staking round could be terminated ahead of schedule', async () => {
 
     const { lsdCoin, lsdxFarmFactory, erc20, Alice, Bob, Caro } = await loadFixture(deployLsdxContractsFixture);

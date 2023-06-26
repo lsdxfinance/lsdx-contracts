@@ -84,19 +84,19 @@ contract Votes is Ownable, ReentrancyGuard {
     return pools;
   }
   
-  function totalVotes(uint256 poolId) external view onlyValidVotingPool(poolId) returns (uint256) {
+  function totalVotes(uint256 poolId) external view onlyValidVotingPool(poolId, false) returns (uint256) {
     return _totalVotes[poolId];
   }
 
-  function votesOf(uint256 poolId, address account) external view onlyValidVotingPool(poolId) returns (uint256) {
+  function votesOf(uint256 poolId, address account) external view onlyValidVotingPool(poolId, false) returns (uint256) {
     return _userVotes[poolId][account];
   }
 
-  function lastTimeBribesApplicable(uint256 poolId) public view onlyValidVotingPool(poolId) returns (uint256) {
+  function lastTimeBribesApplicable(uint256 poolId) public view onlyValidVotingPool(poolId, false) returns (uint256) {
     return Math.min(block.timestamp, periodFinish[poolId]);
   }
 
-  function bribesPerToken(uint256 poolId) public view onlyValidVotingPool(poolId) returns (uint256) {
+  function bribesPerToken(uint256 poolId) public view onlyValidVotingPool(poolId, false) returns (uint256) {
     if (_totalVotes[poolId] == 0) {
       return bribesPerTokenStored[poolId];
     }
@@ -110,7 +110,7 @@ contract Votes is Ownable, ReentrancyGuard {
       );
   }
 
-  function earned(uint256 poolId, address account) public view onlyValidVotingPool(poolId) returns (uint256) {
+  function earned(uint256 poolId, address account) public view onlyValidVotingPool(poolId, false) returns (uint256) {
     return
       _userVotes[poolId][account]
         .mul(bribesPerToken(poolId).sub(userBribesPerTokenPaid[poolId][account]))
@@ -126,7 +126,7 @@ contract Votes is Ownable, ReentrancyGuard {
 
   /* ========== MUTATIVE FUNCTIONS ========== */
 
-  function vote(uint256 poolId, uint256 amount) external virtual payable nonReentrant onlyValidVotingPool(poolId) updateBribeAmounts(poolId, _msgSender()) {
+  function vote(uint256 poolId, uint256 amount) external virtual payable nonReentrant onlyValidVotingPool(poolId, true) updateBribeAmounts(poolId, _msgSender()) {
     require(amount > 0, "Cannot stake 0");
     _totalVotes[poolId] = _totalVotes[poolId].add(amount);
     _userVotes[poolId][_msgSender()] = _userVotes[poolId][_msgSender()].add(amount);
@@ -134,7 +134,7 @@ contract Votes is Ownable, ReentrancyGuard {
     emit Voted(poolId, _msgSender(), amount);
   }
 
-  function withdraw(uint256 poolId, uint256 amount) public virtual nonReentrant onlyValidVotingPool(poolId) updateBribeAmounts(poolId, _msgSender()) {
+  function withdraw(uint256 poolId, uint256 amount) public virtual nonReentrant onlyValidVotingPool(poolId, false) updateBribeAmounts(poolId, _msgSender()) {
     require(amount > 0, "Cannot withdraw 0");
     _totalVotes[poolId] = _totalVotes[poolId].sub(amount);
     _userVotes[poolId][_msgSender()] = _userVotes[poolId][_msgSender()].sub(amount);
@@ -198,7 +198,7 @@ contract Votes is Ownable, ReentrancyGuard {
     emit BriberRemoved(briber);
   }
 
-  function bribe(uint256 poolId, uint256 bribeAmount) external nonReentrant onlyValidVotingPool(poolId) onlyBriber {
+  function bribe(uint256 poolId, uint256 bribeAmount) external nonReentrant onlyValidVotingPool(poolId, true) onlyBriber {
     require(bribeAmount > 0, "Bribe amount should be greater than 0");
 
     VotingPool storage pool = _votingPools[poolId];
@@ -232,8 +232,11 @@ contract Votes is Ownable, ReentrancyGuard {
     _;
   }
 
-  modifier onlyValidVotingPool(uint256 poolId) {
+  modifier onlyValidVotingPool(uint256 poolId, bool active) {
     require(_votingPoolIds.contains(poolId), "Invalid voting pool");
+    if (active) {
+      require(!_votingPools[poolId].deprecated, "Voting pool deprecated");
+    }
     _;
   }
 
