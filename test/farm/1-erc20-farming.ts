@@ -9,8 +9,6 @@ import { LsdxFarm__factory } from '../../typechain/factories/contracts/farm/Lsdx
 
 const { provider } = ethers;
 
-const dayjs = require('dayjs');
-
 describe('Staking Pool', () => {
 
   it('Basic scenario works', async () => {

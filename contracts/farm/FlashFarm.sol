@@ -18,14 +18,10 @@ contract FlashFarm is Ownable, ReentrancyGuard {
 
   IERC20 public rewardsToken;
   IERC20 public stakingToken;
-  uint256 public periodFinish = 0;
-  uint256 public rewardRate = 0;
-  uint256 public rewardsDuration;
-  uint256 public lastUpdateTime;
-  uint256 public rewardPerTokenStored;
+  uint256 public rewardPerToken;
 
   mapping(address => uint256) public userRewardPerTokenPaid;
-  mapping(address => uint256) public rewards;
+  mapping(address => uint256) public userRewards;
 
   uint256 internal _totalSupply;
   mapping(address => uint256) private _balances;
@@ -34,12 +30,10 @@ contract FlashFarm is Ownable, ReentrancyGuard {
 
   constructor(
     address _rewardsToken,
-    address _stakingToken,
-    uint256 _durationInDays
+    address _stakingToken
   ) Ownable() {
     rewardsToken = IERC20(_rewardsToken);
     stakingToken = IERC20(_stakingToken);
-    rewardsDuration = _durationInDays.mul(3600 * 24);
   }
 
   receive() external payable virtual {}
@@ -54,26 +48,8 @@ contract FlashFarm is Ownable, ReentrancyGuard {
     return _balances[account];
   }
 
-  function lastTimeRewardApplicable() public view returns (uint256) {
-    return Math.min(block.timestamp, periodFinish);
-  }
-
-  function rewardPerToken() public view returns (uint256) {
-    if (_totalSupply == 0) {
-      return rewardPerTokenStored;
-    }
-    return
-      rewardPerTokenStored.add(
-        lastTimeRewardApplicable().sub(lastUpdateTime).mul(rewardRate).mul(1e18).div(_totalSupply)
-      );
-  }
-
   function earned(address account) public view returns (uint256) {
-    return _balances[account].mul(rewardPerToken().sub(userRewardPerTokenPaid[account])).div(1e18).add(rewards[account]);
-  }
-
-  function getRewardForDuration() external view returns (uint256) {
-    return rewardRate.mul(rewardsDuration);
+    return _balances[account].mul(rewardPerToken.sub(userRewardPerTokenPaid[account])).add(userRewards[account]);
   }
 
   /* ========== MUTATIVE FUNCTIONS ========== */
@@ -83,32 +59,24 @@ contract FlashFarm is Ownable, ReentrancyGuard {
     _totalSupply = _totalSupply.add(amount);
     _balances[msg.sender] = _balances[msg.sender].add(amount);
     // console.log('stake, msg.sender balance: %s', stakingToken.balanceOf(msg.sender));
-    _transferStakingToken(amount);
-    emit Staked(msg.sender, amount);
-  }
-
-  function _transferStakingToken(uint256 amount) internal virtual {
     stakingToken.safeTransferFrom(msg.sender, address(this), amount);
+    emit Staked(msg.sender, amount);
   }
 
   function withdraw(uint256 amount) public virtual nonReentrant updateReward(msg.sender) {
     require(amount > 0, "Cannot withdraw 0");
     _totalSupply = _totalSupply.sub(amount);
     _balances[msg.sender] = _balances[msg.sender].sub(amount);
-    _withdrawStakingToken(amount);
+    stakingToken.safeTransfer(msg.sender, amount);
     emit Withdrawn(msg.sender, amount);
   }
 
-  function _withdrawStakingToken(uint256 amount) internal virtual {
-    stakingToken.safeTransfer(msg.sender, amount);
-  }
-
   function getReward() public nonReentrant updateReward(msg.sender) {
-    uint256 reward = rewards[msg.sender];
-    if (reward > 0) {
-      rewards[msg.sender] = 0;
-      rewardsToken.safeTransfer(msg.sender, reward);
-      emit RewardPaid(msg.sender, reward);
+    uint256 userReward = userRewards[msg.sender];
+    if (userReward > 0) {
+      userRewards[msg.sender] = 0;
+      rewardsToken.safeTransfer(msg.sender, userReward);
+      emit RewardPaid(msg.sender, userReward);
     }
   }
 
@@ -119,42 +87,24 @@ contract FlashFarm is Ownable, ReentrancyGuard {
 
   /* ========== RESTRICTED FUNCTIONS ========== */
 
-  function addRewards(uint256 rewardsAmount) external onlyOwner {
-    if (rewardsAmount > 0) {
-      rewardsToken.safeTransferFrom(msg.sender, address(this), rewardsAmount);
-      notifyRewardAmount(rewardsAmount);
-    }
-  }
+  function addRewards(uint256 rewardsAmount) external updateReward(address(0)) onlyOwner {
+    require(rewardsAmount > 0, "Too small rewards amount");
 
-  function notifyRewardAmount(uint256 reward) internal virtual onlyOwner updateReward(address(0)) {
-    if (block.timestamp >= periodFinish) {
-      rewardRate = reward.div(rewardsDuration);
-    } else {
-      uint256 remaining = periodFinish.sub(block.timestamp);
-      uint256 leftover = remaining.mul(rewardRate);
-      rewardRate = reward.add(leftover).div(rewardsDuration);
+    rewardsToken.safeTransferFrom(msg.sender, address(this), rewardsAmount);
+
+    if (_totalSupply > 0) {
+      rewardPerToken = rewardPerToken.add(rewardsAmount.div(_totalSupply));
     }
 
-    // Ensure the provided reward amount is not more than the balance in the contract.
-    // This keeps the reward rate in the right range, preventing overflows due to
-    // very high values of rewardRate in the earned and rewardsPerToken functions;
-    // Reward + leftover must be less than 2^256 / 10^18 to avoid overflow.
-    uint balance = rewardsToken.balanceOf(address(this));
-    require(rewardRate <= balance.div(rewardsDuration), "Provided reward too high");
-
-    lastUpdateTime = block.timestamp;
-    periodFinish = block.timestamp.add(rewardsDuration);
-    emit RewardAdded(reward);
+    emit RewardAdded(rewardsAmount);
   }
 
   /* ========== MODIFIERS ========== */
 
   modifier updateReward(address account) {
-    rewardPerTokenStored = rewardPerToken();
-    lastUpdateTime = lastTimeRewardApplicable();
     if (account != address(0)) {
-      rewards[account] = earned(account);
-      userRewardPerTokenPaid[account] = rewardPerTokenStored;
+      userRewards[account] = earned(account);
+      userRewardPerTokenPaid[account] = rewardPerToken;
     }
     _;
   }
