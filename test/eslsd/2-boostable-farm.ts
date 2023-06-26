@@ -104,7 +104,7 @@ describe('Boostable Farm', () => {
     expectBigNumberEquals(eslsdRewardsFor7Days.div(7).mul(1).div(4), await boostableFarm.earned(Caro.address));
   });
 
-  it.only('Reward booster works', async () => {
+  it('Reward booster works', async () => {
 
     const { weth, lsdCoin, esLSD, lsdEthPair, ethxPool, rewardBooster, Alice, Bob, Caro } = await loadFixture(deployLsdxV2ContractsFixture);
 
@@ -165,162 +165,116 @@ describe('Boostable Farm', () => {
     await expect(lsdCoin.connect(Bob).approve(esLSD.address, esBalance)).not.to.be.reverted;
     await expect(esLSD.connect(Bob).escrow(esBalance)).not.to.be.reverted;
 
-    // Day 3. Now Bob has 1_000_000 $esLSD. He choose to vest 900_000 $esLSD, which lasts for 90 days (10_000 $esLSD per day)
+    // Day 3. Now Bob has 1_000_000 $esLSD. He choose to vest 9_000 $esLSD, which lasts for 90 days (100 $esLSD per day)
     await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 3);
-    const vestAmount = expandTo18Decimals(900_000);
+    const vestAmount = expandTo18Decimals(9_000);
     const vestPeirod90days = ONE_DAY_IN_SECS * 90;
     await expect(esLSD.connect(Bob).vest(vestAmount))
       .to.emit(esLSD, 'Transfer').withArgs(Bob.address, esLSD.address, vestAmount)
       .to.emit(esLSD, 'Vest').withArgs(Bob.address, vestAmount, vestAmount, vestPeirod90days);
 
-    // Day 4. Bob should have 10_000 $esLSD unlocked, and 890_000 $esLSD vesting
+    // Day 4. Bob should have 100 $esLSD unlocked, and 8900 $esLSD vesting
     await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 4);
     expectBigNumberEquals(await esLSD.claimableAmount(Bob.address), vestAmount.div(90));
 
-    // Now Bos zap vesting $esLSD to $esLSD-ETH LP tokens.
+    // Now Bos zap vesting $esLSD to $esLSD-ETH LP tokens. Lock period: [D4 ~ D11]
     // LSD-ETH reserves, ETH: 1.0, LSD: 1_000_000.0
     // LSD-ETH LP total supply: 1000.0   ==> 1 LP = 0.001 ETH * 2 = 0.002 ETH
-    // $esLSD: 890_000, need Pair ETH: 0.89
-    // Expected LP: 890
-    console.log(ethers.utils.formatEther(await provider.getBalance(Bob.address)));
-    await expect(esLSD.connect(Bob).zapVest({value: ethers.utils.parseEther('0.9')}))
-      .to.changeEtherBalances([Bob.address, weth.address], [ethers.utils.parseEther('-0.89'), ethers.utils.parseEther('0.89')])
+    // $esLSD: 8900, need Pair ETH: 0.0089
+    // Expected LP: 8.9
+    const bobStakeAmount3 = ethers.utils.parseUnits('8.9', 18);
+    // console.log(ethers.utils.formatEther(await provider.getBalance(Bob.address)));
+    await expect(esLSD.connect(Bob).zapVest({value: ethers.utils.parseEther('0.009')}))
+      .to.changeEtherBalances([Bob.address, weth.address], [ethers.utils.parseEther('-0.0089'), ethers.utils.parseEther('0.0089')])
       .to.emit(lsdCoin, 'Transfer').withArgs(esLSD.address, Bob.address, vestAmount.div(90))
       .to.emit(esLSD, 'Transfer').withArgs(esLSD.address, ethers.constants.AddressZero, vestAmount.div(90))
       .to.emit(esLSD, 'Claim').withArgs(Bob.address, vestAmount.div(90))
       .to.emit(esLSD, 'Transfer').withArgs(esLSD.address, ethers.constants.AddressZero, vestAmount.div(90).mul(89))
       .to.emit(lsdCoin, 'Transfer').withArgs(esLSD.address, lsdEthPair.address, vestAmount.div(90).mul(89))
-      .to.emit(lsdEthPair, 'Transfer').withArgs(esLSD.address, rewardBooster.address, ethers.utils.parseUnits('890', 18))
-      .to.emit(rewardBooster, 'Stake').withArgs(Bob.address, ethers.utils.parseUnits('890', 18), ONE_DAY_IN_SECS * 7)
+      .to.emit(lsdEthPair, 'Transfer').withArgs(esLSD.address, rewardBooster.address, bobStakeAmount3)
+      .to.emit(rewardBooster, 'Stake').withArgs(Bob.address, bobStakeAmount3, ONE_DAY_IN_SECS * 7)
       .to.emit(esLSD, 'ZapVest').withArgs(Bob.address, vestAmount.div(90).mul(89));
 
+    expect(await esLSD.totalSupply()).to.equal(await lsdCoin.balanceOf(esLSD.address));
+    expect(await esLSD.claimableAmount(Bob.address)).to.equal(0);
+    expect((await rewardBooster.getStakeAmount(Bob.address))[1]).to.equal(bobStakeAmount.add(bobStakeAmount2).add(bobStakeAmount3));
+    // Expected boost rate: 1 + (23.9 * 0.002) / (10 * 2.0) = 1.00239
+    expect(await rewardBooster.getBoostRate(Bob.address, ethxAmount)).to.equal(baseRate.mul(100239).div(100000));
 
+    // Day 5. Set ETHx virtual price to 2
+    await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 5); 
+    await expect(ethxPool.connect(Alice).set_virtual_price(expandTo18Decimals(2))).not.to.be.reverted;
 
-    // await expect(esLSD.connect(Bob).approve(rewardBooster.address, esBalance)).not.to.be.reverted;
-    // const bobZapStakeAmount = expandTo18Decimals(1_000);
-    // await expect(rewardBooster.connect(Bob).zapStake(bobZapStakeAmount))
-    //   .to.emit(esLSD, 'Transfer').withArgs(Bob.address, rewardBooster.address, bobZapStakeAmount)
-    //   .to.emit(rewardBooster, 'ZapStake').withArgs(Bob.address, bobZapStakeAmount, stakePeirod7days);
-    // expect((await rewardBooster.getZapStakeAmount(Bob.address))[1]).to.equal(bobZapStakeAmount);
+    // Expected boost rate: 1 + (23.9 * 0.002) / (10 * 2) = 1.00239
+    expectBigNumberEquals(await rewardBooster.getBoostRate(Bob.address, ethxAmount), baseRate.mul(100239).div(100000));
 
-    // // 1 $esLSD/$LSD = 0.000001 ETH
-    // // Expected boost rate: 1 + (15 * 0.002 + 1000 * 0.000001) / (10 * 2.0) = 1.00155
-    // // await rewardBooster.connect(Alice).tryUpdateOracle();
-    // const ethOutAmount = await lsdEthPairOracle.consult(lsdCoin.address, expandTo18Decimals(1000));
-    // console.log(`$LSD in: 1000, ETH out: ${ethers.utils.formatEther(ethOutAmount.toString())}`);
-    // // expect(await rewardBooster.getBoostRate(Bob.address, ethxAmount)).to.equal(baseRate.mul(100155).div(100000));
-    // expectBigNumberEquals(await rewardBooster.getBoostRate(Bob.address, ethxAmount), baseRate.mul(100155).div(100000));
+    // Day 10. Bob could unstake 15 $LSD-ETH lp tokens
+    expect((await rewardBooster.getStakeAmount(Bob.address))[0].toNumber()).to.equal(0);
+    await expect(rewardBooster.connect(Bob).unstake()).to.be.rejectedWith(/No tokens to unstake/);
+    await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 10);
+    expect((await rewardBooster.getStakeAmount(Bob.address))[0]).to.equal(bobStakeAmount.add(bobStakeAmount2));
+    await expect(rewardBooster.connect(Bob).unstake())
+      .to.emit(lsdEthPair, 'Transfer').withArgs(rewardBooster.address, Bob.address, bobStakeAmount)
+      .to.emit(lsdEthPair, 'Transfer').withArgs(rewardBooster.address, Bob.address, bobStakeAmount2)
+      .to.emit(rewardBooster, 'Unstake').withArgs(Bob.address, bobStakeAmount)
+      .to.emit(rewardBooster, 'Unstake').withArgs(Bob.address, bobStakeAmount2);
+    expect((await rewardBooster.getStakeAmount(Bob.address))[0].toNumber()).to.equal(0);
 
-    // // Day 4. Alice update stake period to 10 days
-    // // const stakePeirod10days = ONE_DAY_IN_SECS * 10;
-    // // await expect(rewardBooster.connect(Bob).setStakePeriod(stakePeirod10days)).to.be.rejectedWith(/Ownable: caller is not the owner/);
-    // // await expect(rewardBooster.connect(Alice).setStakePeriod(stakePeirod10days))
-    // //   .to.emit(rewardBooster, 'UpdateStakePeriod').withArgs(stakePeirod7days, stakePeirod10days);
-    // // expect(await rewardBooster.stakePeriod()).to.equal(stakePeirod10days);
+    // Day 12. Bob could unstake remaining 8.9 LP
+    await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 12);
+    expect((await rewardBooster.getStakeAmount(Bob.address))[0]).to.equal(bobStakeAmount3);
+    await expect(rewardBooster.connect(Bob).unstake())
+      .to.emit(lsdEthPair, 'Transfer').withArgs(rewardBooster.address, Bob.address, bobStakeAmount3)
+      .to.emit(rewardBooster, 'Unstake').withArgs(Bob.address, bobStakeAmount3);
+    expect((await rewardBooster.getStakeAmount(Bob.address))[0].toNumber()).to.equal(0);
+    expect((await rewardBooster.getStakeAmount(Bob.address))[1].toNumber()).to.equal(0);
 
-    // // Day 5. Bob zap stakes another 500 $esLSD. Lock period: [D5 ~ D12]
-    // await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 5);    
-    // const bobZapStakeAmount2 = expandTo18Decimals(500);
-    // await expect(rewardBooster.connect(Bob).zapStake(bobZapStakeAmount2))
-    //   .to.emit(esLSD, 'Transfer').withArgs(Bob.address, rewardBooster.address, bobZapStakeAmount2)
-    //   .to.emit(rewardBooster, 'ZapStake').withArgs(Bob.address, bobZapStakeAmount2, stakePeirod7days);
-    // expect((await rewardBooster.getZapStakeAmount(Bob.address))[1]).to.equal(bobZapStakeAmount.add(bobZapStakeAmount2));
+    // Expected boost rate: 1
+    expect(await rewardBooster.getBoostRate(Bob.address, ethxAmount)).to.equal(baseRate);
 
-    // // Expected boost rate: 1 + (15 * 0.002 + 1500 * 0.000001) / (10 * 2.0) = 1.001575
-    // // expect(await rewardBooster.getBoostRate(Bob.address, ethxAmount)).to.equal(baseRate.mul(1001575).div(1000000));
-    // expectBigNumberEquals(await rewardBooster.getBoostRate(Bob.address, ethxAmount), baseRate.mul(1001575).div(1000000));
+    // Caro could stake at most 10 sums    
+    const caroStakeAmount = expandTo18Decimals(100);
+    await expect(lsdEthPair.connect(Alice).transfer(Caro.address, caroStakeAmount)).not.to.be.reverted;
+    await expect(lsdEthPair.connect(Caro).approve(rewardBooster.address, caroStakeAmount)).not.to.be.reverted;
+    await expect(rewardBooster.connect(Caro).stake(expandTo18Decimals(1))).not.to.be.reverted;
+    await expect(rewardBooster.connect(Caro).stake(expandTo18Decimals(2))).not.to.be.reverted;
+    await expect(rewardBooster.connect(Caro).stake(expandTo18Decimals(3))).not.to.be.reverted;
+    await expect(rewardBooster.connect(Caro).stake(expandTo18Decimals(4))).not.to.be.reverted;
+    await expect(rewardBooster.connect(Caro).stake(expandTo18Decimals(5))).not.to.be.reverted;
+    await expect(rewardBooster.connect(Caro).stake(expandTo18Decimals(6))).not.to.be.reverted;
+    await expect(rewardBooster.connect(Caro).stake(expandTo18Decimals(7))).not.to.be.reverted;
+    await expect(rewardBooster.connect(Caro).stake(expandTo18Decimals(8))).not.to.be.reverted;
+    await expect(rewardBooster.connect(Caro).stake(expandTo18Decimals(9))).not.to.be.reverted;
+    await expect(rewardBooster.connect(Caro).stake(expandTo18Decimals(10))).not.to.be.reverted;
+    await expect(rewardBooster.connect(Caro).stake(expandTo18Decimals(11))).to.be.rejectedWith(/Too many stakes/);
 
-    // // Set ETHx virtual price to 1.5
-    // await expect(ethxPool.connect(Alice).set_virtual_price(expandTo18Decimals(15).div(10))).not.to.be.reverted;
+    // Unstake all
+    await expect(rewardBooster.connect(Caro).unstake()).to.be.rejectedWith(/No tokens to unstake/);
+    await time.increase((await rewardBooster.stakePeriod()).toNumber());
+    await expect(rewardBooster.connect(Caro).unstake())
+      .to.emit(lsdEthPair, 'Transfer').withArgs(rewardBooster.address, Caro.address, expandTo18Decimals(1))
+      .to.emit(lsdEthPair, 'Transfer').withArgs(rewardBooster.address, Caro.address, expandTo18Decimals(2))
+      .to.emit(lsdEthPair, 'Transfer').withArgs(rewardBooster.address, Caro.address, expandTo18Decimals(3))
+      .to.emit(lsdEthPair, 'Transfer').withArgs(rewardBooster.address, Caro.address, expandTo18Decimals(4))
+      .to.emit(lsdEthPair, 'Transfer').withArgs(rewardBooster.address, Caro.address, expandTo18Decimals(5))
+      .to.emit(lsdEthPair, 'Transfer').withArgs(rewardBooster.address, Caro.address, expandTo18Decimals(6))
+      .to.emit(lsdEthPair, 'Transfer').withArgs(rewardBooster.address, Caro.address, expandTo18Decimals(7))
+      .to.emit(lsdEthPair, 'Transfer').withArgs(rewardBooster.address, Caro.address, expandTo18Decimals(8))
+      .to.emit(lsdEthPair, 'Transfer').withArgs(rewardBooster.address, Caro.address, expandTo18Decimals(9))
+      .to.emit(lsdEthPair, 'Transfer').withArgs(rewardBooster.address, Caro.address, expandTo18Decimals(10))
+      .to.emit(rewardBooster, 'Unstake').withArgs(Caro.address, expandTo18Decimals(1))
+      .to.emit(rewardBooster, 'Unstake').withArgs(Caro.address, expandTo18Decimals(2))
+      .to.emit(rewardBooster, 'Unstake').withArgs(Caro.address, expandTo18Decimals(3))
+      .to.emit(rewardBooster, 'Unstake').withArgs(Caro.address, expandTo18Decimals(4))
+      .to.emit(rewardBooster, 'Unstake').withArgs(Caro.address, expandTo18Decimals(5))
+      .to.emit(rewardBooster, 'Unstake').withArgs(Caro.address, expandTo18Decimals(6))
+      .to.emit(rewardBooster, 'Unstake').withArgs(Caro.address, expandTo18Decimals(7))
+      .to.emit(rewardBooster, 'Unstake').withArgs(Caro.address, expandTo18Decimals(8))
+      .to.emit(rewardBooster, 'Unstake').withArgs(Caro.address, expandTo18Decimals(9))
+      .to.emit(rewardBooster, 'Unstake').withArgs(Caro.address, expandTo18Decimals(10));
 
-    // // Expected boost rate: 1 + (15 * 0.002 + 1500 * 0.000001) / (10 * 1.5) = 1.0021
-    // // expect(await rewardBooster.getBoostRate(Bob.address, ethxAmount)).to.equal(baseRate.mul(10021).div(10000));
-    // expectBigNumberEquals(await rewardBooster.getBoostRate(Bob.address, ethxAmount), baseRate.mul(10021).div(10000));
-
-    // // Day 11. Bob could unstake 15 $LSD-ETH lp tokens, and 1_000 $esLSD
-    // expect((await rewardBooster.getStakeAmount(Bob.address))[0].toNumber()).to.equal(0);
-    // expect((await rewardBooster.getZapStakeAmount(Bob.address))[0].toNumber()).to.equal(0);
-    // await expect(rewardBooster.connect(Bob).unstake()).to.be.rejectedWith(/No tokens to unstake/);
-    // await expect(rewardBooster.connect(Bob).zapUnstake()).to.be.rejectedWith(/No zapped tokens to unstake/);
-    // await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 11);
-    // expect((await rewardBooster.getStakeAmount(Bob.address))[0]).to.equal(bobStakeAmount.add(bobStakeAmount2));
-    // expect((await rewardBooster.getZapStakeAmount(Bob.address))[0]).to.equal(bobZapStakeAmount);
-    // await expect(rewardBooster.connect(Bob).unstake())
-    //   .to.emit(lsdEthPair, 'Transfer').withArgs(rewardBooster.address, Bob.address, bobStakeAmount)
-    //   .to.emit(lsdEthPair, 'Transfer').withArgs(rewardBooster.address, Bob.address, bobStakeAmount2)
-    //   .to.emit(rewardBooster, 'Unstake').withArgs(Bob.address, bobStakeAmount)
-    //   .to.emit(rewardBooster, 'Unstake').withArgs(Bob.address, bobStakeAmount2);
-    // expect((await rewardBooster.getStakeAmount(Bob.address))[0].toNumber()).to.equal(0);
-    // expect((await rewardBooster.getStakeAmount(Bob.address))[1].toNumber()).to.equal(0);
-    // await expect(rewardBooster.connect(Bob).zapUnstake())
-    //   .to.emit(esLSD, 'Transfer').withArgs(rewardBooster.address, esLSD.address, bobZapStakeAmount)
-    //   .to.emit(esLSD, 'Transfer').withArgs(esLSD.address, ethers.constants.AddressZero, bobZapStakeAmount)
-    //   .to.emit(lsdCoin, 'Transfer').withArgs(esLSD.address, Bob.address, bobZapStakeAmount)
-    //   .to.emit(rewardBooster, 'ZapUnstake').withArgs(Bob.address, bobZapStakeAmount);
-    // expect((await rewardBooster.getZapStakeAmount(Bob.address))[0].toNumber()).to.equal(0);
-    // expect((await rewardBooster.getZapStakeAmount(Bob.address))[1]).to.equal(bobZapStakeAmount2);
-
-    // // Day 11.5. Bob could not yet unstake 500 $esLSD
-    // await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 11.5);
-    // await expect(rewardBooster.connect(Bob).zapUnstake()).to.be.rejectedWith(/No zapped tokens to unstake/);
-
-    // // Day 16. Bob could unstake 500 $esLSD
-    // await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 16);
-    // await expect(rewardBooster.connect(Bob).zapUnstake())
-    //   .to.emit(esLSD, 'Transfer').withArgs(rewardBooster.address, esLSD.address, bobZapStakeAmount2)
-    //   .to.emit(esLSD, 'Transfer').withArgs(esLSD.address, ethers.constants.AddressZero, bobZapStakeAmount2)
-    //   .to.emit(lsdCoin, 'Transfer').withArgs(esLSD.address, Bob.address, bobZapStakeAmount2)
-    //   .to.emit(rewardBooster, 'ZapUnstake').withArgs(Bob.address, bobZapStakeAmount2);
-    // expect((await rewardBooster.getZapStakeAmount(Bob.address))[0].toNumber()).to.equal(0);
-    // expect((await rewardBooster.getZapStakeAmount(Bob.address))[1].toNumber()).to.equal(0);
-
-    // // Expected boost rate: 1
-    // expect(await rewardBooster.getBoostRate(Bob.address, ethxAmount)).to.equal(baseRate);
-
-    // // Caro could stake at most 10 sums    
-    // const caroStakeAmount = expandTo18Decimals(100);
-    // await expect(lsdEthPair.connect(Alice).transfer(Caro.address, caroStakeAmount)).not.to.be.reverted;
-    // await expect(lsdEthPair.connect(Caro).approve(rewardBooster.address, caroStakeAmount)).not.to.be.reverted;
-    // await expect(rewardBooster.connect(Caro).stake(expandTo18Decimals(1))).not.to.be.reverted;
-    // await expect(rewardBooster.connect(Caro).stake(expandTo18Decimals(2))).not.to.be.reverted;
-    // await expect(rewardBooster.connect(Caro).stake(expandTo18Decimals(3))).not.to.be.reverted;
-    // await expect(rewardBooster.connect(Caro).stake(expandTo18Decimals(4))).not.to.be.reverted;
-    // await expect(rewardBooster.connect(Caro).stake(expandTo18Decimals(5))).not.to.be.reverted;
-    // await expect(rewardBooster.connect(Caro).stake(expandTo18Decimals(6))).not.to.be.reverted;
-    // await expect(rewardBooster.connect(Caro).stake(expandTo18Decimals(7))).not.to.be.reverted;
-    // await expect(rewardBooster.connect(Caro).stake(expandTo18Decimals(8))).not.to.be.reverted;
-    // await expect(rewardBooster.connect(Caro).stake(expandTo18Decimals(9))).not.to.be.reverted;
-    // await expect(rewardBooster.connect(Caro).stake(expandTo18Decimals(10))).not.to.be.reverted;
-    // await expect(rewardBooster.connect(Caro).stake(expandTo18Decimals(11))).to.be.rejectedWith(/Too many stakes/);
-
-    // // Unstake all
-    // await expect(rewardBooster.connect(Caro).unstake()).to.be.rejectedWith(/No tokens to unstake/);
-    // await expect(rewardBooster.connect(Caro).zapUnstake()).to.be.rejectedWith(/No tokens to unstake/);
-    // await time.increase((await rewardBooster.stakePeriod()).toNumber());
-    // await expect(rewardBooster.connect(Caro).unstake())
-    //   .to.emit(lsdEthPair, 'Transfer').withArgs(rewardBooster.address, Caro.address, expandTo18Decimals(1))
-    //   .to.emit(lsdEthPair, 'Transfer').withArgs(rewardBooster.address, Caro.address, expandTo18Decimals(2))
-    //   .to.emit(lsdEthPair, 'Transfer').withArgs(rewardBooster.address, Caro.address, expandTo18Decimals(3))
-    //   .to.emit(lsdEthPair, 'Transfer').withArgs(rewardBooster.address, Caro.address, expandTo18Decimals(4))
-    //   .to.emit(lsdEthPair, 'Transfer').withArgs(rewardBooster.address, Caro.address, expandTo18Decimals(5))
-    //   .to.emit(lsdEthPair, 'Transfer').withArgs(rewardBooster.address, Caro.address, expandTo18Decimals(6))
-    //   .to.emit(lsdEthPair, 'Transfer').withArgs(rewardBooster.address, Caro.address, expandTo18Decimals(7))
-    //   .to.emit(lsdEthPair, 'Transfer').withArgs(rewardBooster.address, Caro.address, expandTo18Decimals(8))
-    //   .to.emit(lsdEthPair, 'Transfer').withArgs(rewardBooster.address, Caro.address, expandTo18Decimals(9))
-    //   .to.emit(lsdEthPair, 'Transfer').withArgs(rewardBooster.address, Caro.address, expandTo18Decimals(10))
-    //   .to.emit(rewardBooster, 'Unstake').withArgs(Caro.address, expandTo18Decimals(1))
-    //   .to.emit(rewardBooster, 'Unstake').withArgs(Caro.address, expandTo18Decimals(2))
-    //   .to.emit(rewardBooster, 'Unstake').withArgs(Caro.address, expandTo18Decimals(3))
-    //   .to.emit(rewardBooster, 'Unstake').withArgs(Caro.address, expandTo18Decimals(4))
-    //   .to.emit(rewardBooster, 'Unstake').withArgs(Caro.address, expandTo18Decimals(5))
-    //   .to.emit(rewardBooster, 'Unstake').withArgs(Caro.address, expandTo18Decimals(6))
-    //   .to.emit(rewardBooster, 'Unstake').withArgs(Caro.address, expandTo18Decimals(7))
-    //   .to.emit(rewardBooster, 'Unstake').withArgs(Caro.address, expandTo18Decimals(8))
-    //   .to.emit(rewardBooster, 'Unstake').withArgs(Caro.address, expandTo18Decimals(9))
-    //   .to.emit(rewardBooster, 'Unstake').withArgs(Caro.address, expandTo18Decimals(10));
-
-    // // Stake are cleared. Able to stake again.
-    // await expect(rewardBooster.connect(Caro).stake(expandTo18Decimals(1))).not.to.be.reverted;
+    // Stake are cleared. Able to stake again.
+    await expect(rewardBooster.connect(Caro).stake(expandTo18Decimals(1))).not.to.be.reverted;
   });
 
   it('Boosted farming works', async () => {
