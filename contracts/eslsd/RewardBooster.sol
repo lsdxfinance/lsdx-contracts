@@ -21,6 +21,7 @@ contract RewardBooster is IRewardBooster, Ownable, ReentrancyGuard {
   IUniswapV2Pair public lsdEthPair;
   ICurvePool public ethxPool;
   IBoostableFarm public farm;
+  address public zapStakeDelegator;
 
   uint256 public stakePeriod = 7 days;
 
@@ -51,11 +52,11 @@ contract RewardBooster is IRewardBooster, Ownable, ReentrancyGuard {
   /***********************  VIEWS ************************/
   /*******************************************************/
 
-  function canStake(address user) external view returns (bool) {
+  function ensureStakeCount(address user) external view {
     require(user != address(0), "Zero address detected");
-    return userStakes[user].length < MAX_STAKES_COUNT_PER_USER;
+    require(userStakes[user].length < MAX_STAKES_COUNT_PER_USER, "Too many stakes");
   }
-
+ 
   /**
    * @dev Get the amount of LP tokens that can be unstaked for a user
    * @return Amount of LP tokens that could be unstaked
@@ -94,10 +95,16 @@ contract RewardBooster is IRewardBooster, Ownable, ReentrancyGuard {
   /*******************************************************/
 
   function stake(uint256 amount) external nonReentrant {
-    stakeFor(_msgSender(), amount);
+    _stakeFor(_msgSender(), amount);
+    emit Stake(_msgSender(), amount, stakePeriod);
   }
 
-  function stakeFor(address user, uint256 amount) public {
+  function delegateZapStake(address user, uint256 amount) external nonReentrant onlyZapStakeDelegator(_msgSender()) {
+    _stakeFor(user, amount);
+    emit DelegateZapStake(user, amount, stakePeriod);
+  }
+
+  function _stakeFor(address user, uint256 amount) private {
     require(user != address(0), "Zero address detected");
     require(amount > 0, "Amount must be greater than 0");
     require(userStakes[user].length < MAX_STAKES_COUNT_PER_USER, "Too many stakes");
@@ -106,8 +113,6 @@ contract RewardBooster is IRewardBooster, Ownable, ReentrancyGuard {
 
     StakeInfo memory stakeInfo = StakeInfo(amount, block.timestamp, block.timestamp.add(stakePeriod));
     userStakes[user].push(stakeInfo);
-
-    emit Stake(user, amount, stakePeriod);
 
     farm.updateBoostRate(user);
   }
@@ -132,6 +137,16 @@ contract RewardBooster is IRewardBooster, Ownable, ReentrancyGuard {
     farm.updateBoostRate(_msgSender());
   }
 
+
+  /********************************************/
+  /*********** RESTRICTED FUNCTIONS ***********/
+  /********************************************/
+
+  function setZapStakeDelegator(address _zapStakeDelegator) external onlyOwner {
+    require(_zapStakeDelegator != address(0), "Zero address detected");
+    zapStakeDelegator = _zapStakeDelegator;
+  }
+
   /********************************************************/
   /****************** INTERNAL FUNCTIONS ******************/
   /********************************************************/
@@ -141,10 +156,20 @@ contract RewardBooster is IRewardBooster, Ownable, ReentrancyGuard {
     userStakes[_msgSender()].pop();
   }
 
+  /***********************************************/
+  /****************** MODIFIERS ******************/
+  /***********************************************/
+
+  modifier onlyZapStakeDelegator(address _address) {
+    require(zapStakeDelegator == _address, "Not zap stake delegator");
+    _;
+  }
+
   /********************************************/
   /****************** EVENTS ******************/
   /********************************************/
 
   event Stake(address indexed userAddress, uint256 amount, uint256 period);
+  event DelegateZapStake(address indexed userAddress, uint256 amount, uint256 period);
   event Unstake(address indexed userAddress, uint256 amount);
 }

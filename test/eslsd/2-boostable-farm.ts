@@ -184,6 +184,7 @@ describe('Boostable Farm', () => {
     // Expected LP: 8.9
     const bobStakeAmount3 = ethers.utils.parseUnits('8.9', 18);
     // console.log(ethers.utils.formatEther(await provider.getBalance(Bob.address)));
+    await expect(esLSD.connect(Bob).zapVest({value: ethers.utils.parseEther('0.0088')})).to.be.rejectedWith(/UniswapV2Router: INSUFFICIENT_A_AMOUNT/);
     await expect(esLSD.connect(Bob).zapVest({value: ethers.utils.parseEther('0.009')}))
       .to.changeEtherBalances([Bob.address, weth.address], [ethers.utils.parseEther('-0.0089'), ethers.utils.parseEther('0.0089')])
       .to.emit(lsdCoin, 'Transfer').withArgs(esLSD.address, Bob.address, vestAmount.div(90))
@@ -192,7 +193,7 @@ describe('Boostable Farm', () => {
       .to.emit(esLSD, 'Transfer').withArgs(esLSD.address, ethers.constants.AddressZero, vestAmount.div(90).mul(89))
       .to.emit(lsdCoin, 'Transfer').withArgs(esLSD.address, lsdEthPair.address, vestAmount.div(90).mul(89))
       .to.emit(lsdEthPair, 'Transfer').withArgs(esLSD.address, rewardBooster.address, bobStakeAmount3)
-      .to.emit(rewardBooster, 'Stake').withArgs(Bob.address, bobStakeAmount3, ONE_DAY_IN_SECS * 7)
+      .to.emit(rewardBooster, 'DelegateZapStake').withArgs(Bob.address, bobStakeAmount3, ONE_DAY_IN_SECS * 7)
       .to.emit(esLSD, 'ZapVest').withArgs(Bob.address, vestAmount.div(90).mul(89));
 
     expect(await esLSD.totalSupply()).to.equal(await lsdCoin.balanceOf(esLSD.address));

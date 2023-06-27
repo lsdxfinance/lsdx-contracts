@@ -143,6 +143,9 @@ export async function deployLsdxV2ContractsFixture() {
   trans = await esLSD.connect(Alice).setRewardBooster(rewardBooster.address);
   await trans.wait();
 
+  trans = await rewardBooster.connect(Alice).setZapStakeDelegator(esLSD.address);
+  await trans.wait();
+
   const Votes = await ethers.getContractFactory('Votes');
   const VotesContract = await Votes.deploy(esLSD.address);
   const votes = Votes__factory.connect(VotesContract.address, provider);

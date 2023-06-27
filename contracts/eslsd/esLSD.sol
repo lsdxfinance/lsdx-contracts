@@ -137,7 +137,7 @@ contract esLSD is Ownable, ReentrancyGuard, ERC20("esLSD Token", "esLSD") {
 
   function zapVest() external payable nonReentrant {
     require(rewardBooster != address(0), "Reward booster not set");
-    require(IRewardBooster(rewardBooster).canStake(_msgSender()), "Too many stakes");
+    IRewardBooster(rewardBooster).ensureStakeCount(_msgSender());
 
     VestingInfo storage vestingInfo = userVestings[_msgSender()];
     require(vestingInfo.amount > 0, "No tokens to claim");
@@ -169,11 +169,12 @@ contract esLSD is Ownable, ReentrancyGuard, ERC20("esLSD Token", "esLSD") {
     }
 
     lsdEthPair.approve(rewardBooster, amountLP);
-    IRewardBooster(rewardBooster).stakeFor(_msgSender(), amountLP);
+    IRewardBooster(rewardBooster).delegateZapStake(_msgSender(), amountLP);
     emit ZapVest(_msgSender(), zapAmount);
 
     delete userVestings[_msgSender()];
   }
+
 
   /********************************************/
   /*********** RESTRICTED FUNCTIONS ***********/
