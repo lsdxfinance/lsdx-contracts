@@ -6,16 +6,23 @@ import { ETHxOFT__factory } from '../../typechain';
 dotenv.config();
 
 const privateKey: string = process.env.PRIVATE_KEY || "";
+const infuraKey: string = process.env.INFURA_KEY || "";
 
-// Polygon zkEVM testnet
-const provider = new ethers.providers.JsonRpcProvider(`https://rpc.public.zkevm-test.net`);
-const ethxOFTAddress = '0xb16b9F9CaA3fdAD503eD35E1d7C773f2BE79E0B1';
-// ref: https://layerzero.gitbook.io/docs/technical-reference/testnet/testnet-addresses
-const remoteChainId = 10121; // goerli
-const remoteEthxAddress = '0x33cd7Bdb353196BbAbB555Abbe35D35Ee87D3D74';
+// // Polygon zkEVM testnet
+// const provider = new ethers.providers.JsonRpcProvider(`https://rpc.public.zkevm-test.net`);
+// const ethxOFTAddress = '0xb16b9F9CaA3fdAD503eD35E1d7C773f2BE79E0B1';
+// // ref: https://layerzero.gitbook.io/docs/technical-reference/testnet/testnet-addresses
+// const remoteChainId = 10121; // goerli
+// const remoteEthxAddress = '0x33cd7Bdb353196BbAbB555Abbe35D35Ee87D3D74';
 
 // Polygon zkEVM
 // const provider = new ethers.providers.JsonRpcProvider(`https://zkevm-rpc.com`);
+
+// Optimistic Goerli
+const provider = new ethers.providers.JsonRpcProvider(`https://optimism-goerli.infura.io/v3/${infuraKey}`);
+const ethxOFTAddress = '0x0839aF3391d05e28328E99Fe234023c2d22b3Fc2';
+const remoteChainId = 10121; // goerli
+const remoteEthxAddress = '0xAefaB3500ECd1Fa75C8A806A8E6FCEbd09d622Df';
 
 async function main() {
   const ethxOFT = ETHxOFT__factory.connect(ethxOFTAddress, provider);

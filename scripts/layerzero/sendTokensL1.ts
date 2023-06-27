@@ -8,13 +8,18 @@ dotenv.config();
 const privateKey: string = process.env.PRIVATE_KEY || "";
 const infuraKey: string = process.env.INFURA_KEY || "";
 
-// Goerli
+// // Goerli to Polygon zkEVM Testnet
+// const provider = new ethers.providers.JsonRpcProvider(`https://goerli.infura.io/v3/${infuraKey}`);
+// const ethxAddress = '0xE3AA29cC330c5dd28429641Dd50409553f1f4476';
+// const ethxProxyOFTAddress = '0x33cd7Bdb353196BbAbB555Abbe35D35Ee87D3D74';
+// // ref: https://layerzero.gitbook.io/docs/technical-reference/testnet/testnet-addresses
+// const remoteChainId = 10158; // zksync-testnet
+
+// Goerli to Optimistic Goerli
 const provider = new ethers.providers.JsonRpcProvider(`https://goerli.infura.io/v3/${infuraKey}`);
 const ethxAddress = '0xE3AA29cC330c5dd28429641Dd50409553f1f4476';
-const ethxProxyOFTAddress = '0x33cd7Bdb353196BbAbB555Abbe35D35Ee87D3D74';
-// ref: https://layerzero.gitbook.io/docs/technical-reference/testnet/testnet-addresses
-const remoteChainId = 10158; // zksync-testnet
-// const remoteEthxAddress = '0xb16b9F9CaA3fdAD503eD35E1d7C773f2BE79E0B1';
+const ethxProxyOFTAddress = '0xAefaB3500ECd1Fa75C8A806A8E6FCEbd09d622Df';
+const remoteChainId = 10132;
 
 // mainnet
 // const provider = new ethers.providers.JsonRpcProvider(`https://mainnet.infura.io/v3/${infuraKey}`);

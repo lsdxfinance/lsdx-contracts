@@ -22,7 +22,9 @@ const chainIds = {
   rinkeby: 4,
   goerli: 5,
   polygonZkEVM: 1101,
-  polygonZkEVMTestnet: 1442
+  polygonZkEVMTestnet: 1442,
+  optimisticEthereum: 10,
+  optimisticGoerli: 420
 };
 
 // Ensure that we have all the environment variables we need.
@@ -50,6 +52,12 @@ function createTestnetConfig(network: keyof typeof chainIds): NetworkUserConfig 
       break;
     case "polygonZkEVMTestnet":
       nodeUrl = `https://rpc.public.zkevm-test.net`;
+      break;
+    case "optimisticEthereum":
+        nodeUrl = `https://optimism-mainnet.infura.io/v3/${infuraKey}`;
+        break;
+    case "optimisticGoerli":
+      nodeUrl = `https://optimism-goerli.infura.io/v3/${infuraKey}`;
       break;
   }
 
@@ -118,7 +126,9 @@ const config: HardhatUserConfig = {
       mainnet: process.env.ETHERSCAN_KEY || '',
       rinkeby: process.env.ETHERSCAN_KEY || '',
       goerli: process.env.ETHERSCAN_KEY || '',
-      polygonZkEVMTestnet: process.env.ZKEVM_POLYGONSCAN_KEY || ''
+      polygonZkEVMTestnet: process.env.ZKEVM_POLYGONSCAN_KEY || '',
+      optimisticEthereum: process.env.OPTIMISTIC_ETHERSCAN_KEY || '',
+      optimisticGoerli: process.env.OPTIMISTIC_ETHERSCAN_KEY || ''
     },
     customChains: [
       {
@@ -139,7 +149,9 @@ if (privateKey) {
     goerli: createTestnetConfig("goerli"),
     rinkeby: createTestnetConfig("rinkeby"),
     polygonZkEVM: createTestnetConfig("polygonZkEVM"),
-    polygonZkEVMTestnet: createTestnetConfig("polygonZkEVMTestnet")
+    polygonZkEVMTestnet: createTestnetConfig("polygonZkEVMTestnet"),
+    optimisticEthereum: createTestnetConfig("optimisticEthereum"),
+    optimisticGoerli: createTestnetConfig("optimisticGoerli")
   };
 }
 

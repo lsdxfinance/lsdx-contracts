@@ -75,9 +75,16 @@ describe('Flash Farm', () => {
     await expect(lsdCoin.connect(Alice).approve(flashFarm.address, round3Reward)).not.to.be.reverted;
     await expect(flashFarm.connect(Alice).addRewards(round3Reward)).not.to.be.reverted;
 
+    // Fast-forward to Day 10. Add new reward
+    await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 10);
+    const round4Reward = expandTo18Decimals(30_000);
+    await expect(lsdCoin.connect(Alice).mint(Alice.address, round4Reward)).not.to.be.reverted;
+    await expect(lsdCoin.connect(Alice).approve(flashFarm.address, round4Reward)).not.to.be.reverted;
+    await expect(flashFarm.connect(Alice).addRewards(round4Reward)).not.to.be.reverted;
+
     // Check Bob and Caro's rewards
-    expectBigNumberEquals(round2Reward.mul(4).div(5).add(round3Reward.mul(1).div(2)), await flashFarm.earned(Bob.address));
-    expectBigNumberEquals(totalReward.mul(1).div(5).add(round2Reward.mul(1).div(5)).add(round3Reward.mul(1).div(2)), await flashFarm.earned(Caro.address));
+    expectBigNumberEquals(round2Reward.mul(4).div(5).add(round3Reward.mul(1).div(2).add(round4Reward.mul(1).div(2))), await flashFarm.earned(Bob.address));
+    expectBigNumberEquals(totalReward.mul(1).div(5).add(round2Reward.mul(1).div(5)).add(round3Reward.mul(1).div(2).add(round4Reward.mul(1).div(2))), await flashFarm.earned(Caro.address));
 
   });
 

@@ -77,11 +77,7 @@ export async function deployLsdxContractsFixture() {
   const veLSDContract = await VeLSD.deploy();
   const veLSD = VeLSD__factory.connect(veLSDContract.address, provider);
 
-  const EsLSD = await ethers.getContractFactory('esLSD');
-  const EsLSDContract = await EsLSD.deploy(lsdCoin.address);
-  const esLSD = EsLSD__factory.connect(EsLSDContract.address, provider);
-
-  return { lsdCoin, stakingPoolFactory, lsdxFarmFactory, v2PlainStakingPool, v2FraxStakingPool, weth, stETH, frxETH, sfrxETH, erc20, veLSD, esLSD, Alice, Bob, Caro, Dave };
+  return { lsdCoin, stakingPoolFactory, lsdxFarmFactory, v2PlainStakingPool, v2FraxStakingPool, weth, stETH, frxETH, sfrxETH, erc20, veLSD, Alice, Bob, Caro, Dave };
 }
 
 export async function deployLsdxV2ContractsFixture() {
