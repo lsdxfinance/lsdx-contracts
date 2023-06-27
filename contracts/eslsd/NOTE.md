@@ -76,7 +76,7 @@ Boost Rate = 1 + 10 * (LP Value + $esLSD Value) / (ETHx Value)
 
 ## 合约接口
 
-- `getBoostRate`: 计算用户的 *Boost Rate*
+- `getUserBoostRate`: 计算用户的 *Boost Rate*
 
 - `stake`: stake 一笔新的 LP
 - `unstake`: 提取已经解锁的 LP

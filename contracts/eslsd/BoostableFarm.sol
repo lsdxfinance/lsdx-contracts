@@ -137,7 +137,7 @@ contract BoostableFarm is IBoostableFarm, Ownable, ReentrancyGuard {
 
   function _updateBoostedBalances(address account) internal {
     uint256 prevBoostedBalance = _boostedBalances[account];
-    uint256 boostRate = IRewardBooster(rewardBooster).getBoostRate(account, _balances[account]);
+    uint256 boostRate = IRewardBooster(rewardBooster).getUserBoostRate(account, _balances[account]);
     uint256 newBoostedBalance = _balances[account].mul(boostRate).div(PRECISION);
     _boostedBalances[account] = newBoostedBalance;
     _totalBoostedSupply = _totalBoostedSupply.sub(prevBoostedBalance).add(newBoostedBalance);

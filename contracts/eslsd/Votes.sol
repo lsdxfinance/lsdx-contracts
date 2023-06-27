@@ -111,7 +111,7 @@ contract Votes is Ownable, ReentrancyGuard {
 
   /* ========== MUTATIVE FUNCTIONS ========== */
 
-  function vote(uint256 poolId, uint256 amount) public nonReentrant onlyValidVotingPool(poolId, true) updateBribeAmounts(poolId, _msgSender()) {
+  function vote(uint256 poolId, uint256 amount) public nonReentrant updateBribeAmounts(poolId, _msgSender()) onlyValidVotingPool(poolId, true) {
     require(amount > 0, "Cannot vote 0");
     _totalVotes[poolId] = _totalVotes[poolId].add(amount);
     _userVotes[poolId][_msgSender()] = _userVotes[poolId][_msgSender()].add(amount);
@@ -119,7 +119,7 @@ contract Votes is Ownable, ReentrancyGuard {
     emit Voted(poolId, _msgSender(), amount);
   }
 
-  function batchVote(BatchVoteParams[] calldata votes) external nonReentrant {
+  function batchVote(BatchVoteParams[] calldata votes) external {
     require(votes.length > 0, "Empty params");
 
     for (uint256 i = 0; i < votes.length; i++) {
@@ -127,7 +127,7 @@ contract Votes is Ownable, ReentrancyGuard {
     }
   }
 
-  function unvote(uint256 poolId, uint256 amount) public nonReentrant onlyValidVotingPool(poolId, false) updateBribeAmounts(poolId, _msgSender()) {
+  function unvote(uint256 poolId, uint256 amount) public nonReentrant updateBribeAmounts(poolId, _msgSender()) onlyValidVotingPool(poolId, false) {
     require(amount > 0, "Cannot unvote 0");
     _totalVotes[poolId] = _totalVotes[poolId].sub(amount);
     _userVotes[poolId][_msgSender()] = _userVotes[poolId][_msgSender()].sub(amount);
@@ -135,7 +135,7 @@ contract Votes is Ownable, ReentrancyGuard {
     emit Unvoted(poolId, _msgSender(), amount);
   }
 
-  function unvoteAll() external nonReentrant {
+  function unvoteAll() external {
     for (uint256 i = 0; i < _votingPoolIds.length(); i++) {
       uint256 poolId = _votingPoolIds.at(i);
       uint256 amount = _userVotes[poolId][_msgSender()];
@@ -145,7 +145,7 @@ contract Votes is Ownable, ReentrancyGuard {
     }
   }
 
-  function getBribeRewards(uint256 poolId) public nonReentrant onlyValidVotingPool(poolId, false) updateBribeAmounts(poolId, _msgSender()) {
+  function getBribeRewards(uint256 poolId) public nonReentrant updateBribeAmounts(poolId, _msgSender()) onlyValidVotingPool(poolId, false) {
     VotingPool storage pool = _votingPools[poolId];
     uint256 reward = userBribeRewards[poolId][_msgSender()];
     if (reward > 0) {
@@ -155,16 +155,10 @@ contract Votes is Ownable, ReentrancyGuard {
     }
   }
 
-  function getAllBribeRewards() public nonReentrant updateAllBribeAmounts(_msgSender()) {
+  function getAllBribeRewards() external {
     for (uint256 i = 0; i < _votingPoolIds.length(); i++) {
       uint256 poolId = _votingPoolIds.at(i);
-      VotingPool storage pool = _votingPools[poolId];
-      uint256 reward = userBribeRewards[poolId][_msgSender()];
-      if (reward > 0) {
-        userBribeRewards[poolId][_msgSender()] = 0;
-        IERC20(pool.bribeToken).safeTransfer(_msgSender(), reward);
-        emit BribeRewardsPaid(poolId, _msgSender(), reward);
-      }
+      getBribeRewards(poolId);
     }
   }
 
@@ -212,13 +206,12 @@ contract Votes is Ownable, ReentrancyGuard {
 
   function bribe(uint256 poolId, uint256 bribeAmount) external nonReentrant updateBribeAmounts(poolId, address(0)) onlyValidVotingPool(poolId, true) onlyBriber {
     require(bribeAmount > 0, "Bribe amount should be greater than 0");
+    require(_totalVotes[poolId] > 0, "No votes yet");
 
     VotingPool storage pool = _votingPools[poolId];
     IERC20(pool.bribeToken).safeTransferFrom(_msgSender(), address(this), bribeAmount);
 
-    if (_totalVotes[poolId] > 0) {
-      bribeRewardsPerToken[poolId] = bribeRewardsPerToken[poolId].add(bribeAmount.div(_totalVotes[poolId]));
-    }
+    bribeRewardsPerToken[poolId] = bribeRewardsPerToken[poolId].add(bribeAmount.div(_totalVotes[poolId]));
 
     emit BribeRewardsAdded(poolId, _msgSender(), bribeAmount);
   }
@@ -239,26 +232,14 @@ contract Votes is Ownable, ReentrancyGuard {
   }
 
   modifier updateBribeAmounts(uint256 poolId, address account) {
-    _updateBribeAmounts(poolId, account);
-    _;
-  }
-
-  modifier updateAllBribeAmounts(address account) {
-    for (uint256 i = 0; i < _votingPoolIds.length(); i++) {
-      uint256 poolId = _votingPoolIds.at(i);
-      // Update deprecated pools as well
-      _updateBribeAmounts(poolId, account);
-    }
-    _;
-  }
-
-  function _updateBribeAmounts(uint256 poolId, address account) internal {
     require(_votingPoolIds.contains(poolId), "Invalid voting pool");
 
     if (account != address(0)) {
       userBribeRewards[poolId][account] = bribeRewardsEarned(poolId, account);
       userBribeRewardsPerTokenPaid[poolId][account] = bribeRewardsPerToken[poolId];
     }
+
+    _;
   }
 
   /* ========== EVENTS ========== */

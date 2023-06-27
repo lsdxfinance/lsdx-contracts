@@ -117,8 +117,8 @@ describe('Boostable Farm', () => {
 
     const baseRate = expandTo18Decimals(1);
     const ethxAmount = expandTo18Decimals(10);
-    expect(await rewardBooster.getBoostRate(Bob.address, 0)).to.equal(baseRate);
-    expect(await rewardBooster.getBoostRate(Bob.address, ethxAmount)).to.equal(baseRate);
+    expect(await rewardBooster.getUserBoostRate(Bob.address, 0)).to.equal(baseRate);
+    expect(await rewardBooster.getUserBoostRate(Bob.address, ethxAmount)).to.equal(baseRate);
 
     // Day 0. Bob stakes 10 $LSD-ETH LP tokens. Lock period: [D0 ~ D7]
     const genesisTime = await time.latest();
@@ -140,8 +140,8 @@ describe('Boostable Farm', () => {
     await trans.wait();
 
     // Expected boost rate: 1 + (10 * 0.002) / (10 * 2.0) = 1.001
-    // console.log(`Boosted rate: ${ethers.utils.formatUnits(await rewardBooster.getBoostRate(Bob.address, ethxAmount), 18)}`);
-    expect(await rewardBooster.getBoostRate(Bob.address, ethxAmount)).to.equal(baseRate.mul(10010).div(10000));
+    // console.log(`Boosted rate: ${ethers.utils.formatUnits(await rewardBooster.getUserBoostRate(Bob.address, ethxAmount), 18)}`);
+    expect(await rewardBooster.getUserBoostRate(Bob.address, ethxAmount)).to.equal(baseRate.mul(10010).div(10000));
 
     // Day 2. Bob stakes another 5 $LSD-ETH LP tokens. Lock period: [D2 ~ D9]
     await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 2);
@@ -154,11 +154,11 @@ describe('Boostable Farm', () => {
     expect((await rewardBooster.getStakeAmount(Bob.address))[1]).to.equal(bobStakeAmount.add(bobStakeAmount2));
 
     // Expected boost rate: 1 + (15 * 0.002) / (10 * 2.0) = 1.0015
-    expect(await rewardBooster.getBoostRate(Bob.address, ethxAmount)).to.equal(baseRate.mul(10015).div(10000));
+    expect(await rewardBooster.getUserBoostRate(Bob.address, ethxAmount)).to.equal(baseRate.mul(10015).div(10000));
 
     // Max boost rate: 10
     // Assume Bob stakes 0.001 ETHx, expected boost rate: 1 + (15 * 0.002) / (0.001 * 2.0) = 16
-    expect(await rewardBooster.getBoostRate(Bob.address, expandTo18Decimals(1).div(1000))).to.equal(baseRate.mul(10));
+    expect(await rewardBooster.getUserBoostRate(Bob.address, expandTo18Decimals(1).div(1000))).to.equal(baseRate.mul(10));
 
     const esBalance = expandTo18Decimals(1_000_000);
     await expect(lsdCoin.connect(Alice).mint(Bob.address, esBalance)).not.to.be.reverted;
@@ -200,14 +200,14 @@ describe('Boostable Farm', () => {
     expect(await esLSD.claimableAmount(Bob.address)).to.equal(0);
     expect((await rewardBooster.getStakeAmount(Bob.address))[1]).to.equal(bobStakeAmount.add(bobStakeAmount2).add(bobStakeAmount3));
     // Expected boost rate: 1 + (23.9 * 0.002) / (10 * 2.0) = 1.00239
-    expect(await rewardBooster.getBoostRate(Bob.address, ethxAmount)).to.equal(baseRate.mul(100239).div(100000));
+    expect(await rewardBooster.getUserBoostRate(Bob.address, ethxAmount)).to.equal(baseRate.mul(100239).div(100000));
 
     // Day 5. Set ETHx virtual price to 2
     await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 5); 
     await expect(ethxPool.connect(Alice).set_virtual_price(expandTo18Decimals(2))).not.to.be.reverted;
 
     // Expected boost rate: 1 + (23.9 * 0.002) / (10 * 2) = 1.00239
-    expectBigNumberEquals(await rewardBooster.getBoostRate(Bob.address, ethxAmount), baseRate.mul(100239).div(100000));
+    expectBigNumberEquals(await rewardBooster.getUserBoostRate(Bob.address, ethxAmount), baseRate.mul(100239).div(100000));
 
     // Day 10. Bob could unstake 15 $LSD-ETH lp tokens
     expect((await rewardBooster.getStakeAmount(Bob.address))[0].toNumber()).to.equal(0);
@@ -231,7 +231,7 @@ describe('Boostable Farm', () => {
     expect((await rewardBooster.getStakeAmount(Bob.address))[1].toNumber()).to.equal(0);
 
     // Expected boost rate: 1
-    expect(await rewardBooster.getBoostRate(Bob.address, ethxAmount)).to.equal(baseRate);
+    expect(await rewardBooster.getUserBoostRate(Bob.address, ethxAmount)).to.equal(baseRate);
 
     // Caro could stake at most 10 sums    
     const caroStakeAmount = expandTo18Decimals(100);
@@ -331,7 +331,7 @@ describe('Boostable Farm', () => {
     await expect(lsdEthPair.connect(Alice).transfer(Bob.address, bobStakeAmountLP)).not.to.be.reverted;
     await expect(lsdEthPair.connect(Bob).approve(rewardBooster.address, bobStakeAmountLP)).not.to.be.reverted;
     await expect(rewardBooster.connect(Bob).stake(bobStakeAmountLP)).not.to.be.reverted;
-    expect(await rewardBooster.getBoostRate(Bob.address, await boostableFarm.balanceOf(Bob.address))).to.equal(baseBoostRate.mul(11).div(10));
+    expect(await rewardBooster.getUserBoostRate(Bob.address, await boostableFarm.balanceOf(Bob.address))).to.equal(baseBoostRate.mul(11).div(10));
 
     expect(await boostableFarm.boostedBalanceOf(Bob.address)).to.equal(bobStakeAmount.mul(11).div(10));
     expect(await boostableFarm.totalBoostedSupply()).to.equal(bobStakeAmount.mul(11).div(10).add(caroStakeAmount));
@@ -363,7 +363,7 @@ describe('Boostable Farm', () => {
     // Bob withdraw 0.1 $ETHx, and boost rate is updated: 1 + (30 * 0.002) / (0.3 * 2.0) = 1.1
     await expect(boostableFarm.connect(Bob).withdraw(bobStakeAmount2)).not.to.be.reverted;
     expect(await boostableFarm.balanceOf(Bob.address)).to.equal(bobStakeAmount);
-    expect(await rewardBooster.getBoostRate(Bob.address, await boostableFarm.balanceOf(Bob.address))).to.equal(baseBoostRate.mul(11).div(10));
+    expect(await rewardBooster.getUserBoostRate(Bob.address, await boostableFarm.balanceOf(Bob.address))).to.equal(baseBoostRate.mul(11).div(10));
 
     // Day 6
     await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 6);

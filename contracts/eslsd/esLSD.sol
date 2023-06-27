@@ -136,6 +136,7 @@ contract esLSD is Ownable, ReentrancyGuard, ERC20("esLSD Token", "esLSD") {
   }
 
   function zapVest() external payable nonReentrant {
+    require(msg.value > 0, "Zero paired ETH amount");
     require(rewardBooster != address(0), "Reward booster not set");
     IRewardBooster(rewardBooster).ensureStakeCount(_msgSender());
 

@@ -76,8 +76,12 @@ contract RewardBooster is IRewardBooster, Ownable, ReentrancyGuard {
     return (unstakeableAmount, totalStakedAmount);
   }
 
-  function getBoostRate(address account, uint256 ethxAmount) external view returns (uint256) {
+  function getUserBoostRate(address account, uint256 ethxAmount) external view returns (uint256) {
     (, uint256 lpAmount) = getStakeAmount(account);
+    return getBoostRate(lpAmount, ethxAmount);
+  }
+
+  function getBoostRate(uint256 lpAmount, uint256 ethxAmount) public view returns (uint256) {
     (uint256 ethReserve, , ) = lsdEthPair.getReserves();
     uint256 lpAmountETHValue = lpAmount.mul(PRECISION).mul(ethReserve).div(lsdEthPair.totalSupply()).mul(2);
 
@@ -89,6 +93,8 @@ contract RewardBooster is IRewardBooster, Ownable, ReentrancyGuard {
     uint256 boostRate = lpAmountETHValue.mul(DECIMALS).div(ethxAmountETHValue).div(PRECISION);
     return Math.min(boostRate.add(1 * DECIMALS), MAX_BOOST_RATE);
   }
+
+
 
   /*******************************************************/
   /****************** MUTATIVE FUNCTIONS *****************/
