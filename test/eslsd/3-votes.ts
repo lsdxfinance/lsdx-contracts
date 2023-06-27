@@ -152,6 +152,10 @@ describe('Votes', () => {
     await expect(esLSD.connect(Alice).approve(votes.address, aliceBatchVote1EthxPoolAmount.add(aliceBatchVote1LsdxPoolAmount))).not.to.be.reverted;
     await expect(votes.connect(Alice).batchVote([
       {poolId: ethxPoolId, amount: aliceBatchVote1EthxPoolAmount},
+      {poolId: 3, amount: aliceBatchVote1LsdxPoolAmount}
+    ])).to.be.rejectedWith(/Invalid voting pool/);
+    await expect(votes.connect(Alice).batchVote([
+      {poolId: ethxPoolId, amount: aliceBatchVote1EthxPoolAmount},
       {poolId: lsdPoolId, amount: aliceBatchVote1LsdxPoolAmount}
     ]))
       .to.emit(esLSD, 'Transfer').withArgs(Alice.address, votes.address, aliceBatchVote1EthxPoolAmount)

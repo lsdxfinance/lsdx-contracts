@@ -90,11 +90,9 @@ contract RewardBooster is IRewardBooster, Ownable, ReentrancyGuard {
       return 1 * DECIMALS;
     }
 
-    uint256 boostRate = lpAmountETHValue.mul(DECIMALS).div(ethxAmountETHValue).div(PRECISION);
+    uint256 boostRate = lpAmountETHValue.mul(10).mul(DECIMALS).div(ethxAmountETHValue).div(PRECISION);
     return Math.min(boostRate.add(1 * DECIMALS), MAX_BOOST_RATE);
   }
-
-
 
   /*******************************************************/
   /****************** MUTATIVE FUNCTIONS *****************/

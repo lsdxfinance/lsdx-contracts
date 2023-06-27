@@ -139,9 +139,9 @@ describe('Boostable Farm', () => {
     let trans = await ethxPool.connect(Alice).set_virtual_price(expandTo18Decimals(2));
     await trans.wait();
 
-    // Expected boost rate: 1 + (10 * 0.002) / (10 * 2.0) = 1.001
+    // Expected boost rate: 1 + 10 * (10 * 0.002) / (10 * 2.0) = 1.01
     // console.log(`Boosted rate: ${ethers.utils.formatUnits(await rewardBooster.getUserBoostRate(Bob.address, ethxAmount), 18)}`);
-    expect(await rewardBooster.getUserBoostRate(Bob.address, ethxAmount)).to.equal(baseRate.mul(10010).div(10000));
+    expect(await rewardBooster.getUserBoostRate(Bob.address, ethxAmount)).to.equal(baseRate.mul(1010).div(1000));
 
     // Day 2. Bob stakes another 5 $LSD-ETH LP tokens. Lock period: [D2 ~ D9]
     await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 2);
@@ -153,11 +153,11 @@ describe('Boostable Farm', () => {
       .to.emit(rewardBooster, 'Stake').withArgs(Bob.address, bobStakeAmount2, stakePeirod7days);
     expect((await rewardBooster.getStakeAmount(Bob.address))[1]).to.equal(bobStakeAmount.add(bobStakeAmount2));
 
-    // Expected boost rate: 1 + (15 * 0.002) / (10 * 2.0) = 1.0015
-    expect(await rewardBooster.getUserBoostRate(Bob.address, ethxAmount)).to.equal(baseRate.mul(10015).div(10000));
+    // Expected boost rate: 1 + 10 * (15 * 0.002) / (10 * 2.0) = 1.015
+    expect(await rewardBooster.getUserBoostRate(Bob.address, ethxAmount)).to.equal(baseRate.mul(1015).div(1000));
 
     // Max boost rate: 10
-    // Assume Bob stakes 0.001 ETHx, expected boost rate: 1 + (15 * 0.002) / (0.001 * 2.0) = 16
+    // Assume Bob stakes 0.001 ETHx, expected boost rate: 1 + 10 * (15 * 0.002) / (0.001 * 2.0) = 151
     expect(await rewardBooster.getUserBoostRate(Bob.address, expandTo18Decimals(1).div(1000))).to.equal(baseRate.mul(10));
 
     const esBalance = expandTo18Decimals(1_000_000);
@@ -199,15 +199,15 @@ describe('Boostable Farm', () => {
     expect(await esLSD.totalSupply()).to.equal(await lsdCoin.balanceOf(esLSD.address));
     expect(await esLSD.claimableAmount(Bob.address)).to.equal(0);
     expect((await rewardBooster.getStakeAmount(Bob.address))[1]).to.equal(bobStakeAmount.add(bobStakeAmount2).add(bobStakeAmount3));
-    // Expected boost rate: 1 + (23.9 * 0.002) / (10 * 2.0) = 1.00239
-    expect(await rewardBooster.getUserBoostRate(Bob.address, ethxAmount)).to.equal(baseRate.mul(100239).div(100000));
+    // Expected boost rate: 1 + 10 * (23.9 * 0.002) / (10 * 2.0) = 1.0239
+    expect(await rewardBooster.getUserBoostRate(Bob.address, ethxAmount)).to.equal(baseRate.mul(10239).div(10000));
 
     // Day 5. Set ETHx virtual price to 2
     await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 5); 
     await expect(ethxPool.connect(Alice).set_virtual_price(expandTo18Decimals(2))).not.to.be.reverted;
 
-    // Expected boost rate: 1 + (23.9 * 0.002) / (10 * 2) = 1.00239
-    expectBigNumberEquals(await rewardBooster.getUserBoostRate(Bob.address, ethxAmount), baseRate.mul(100239).div(100000));
+    // Expected boost rate: 1 + 10 * (23.9 * 0.002) / (10 * 2) = 1.0239
+    expectBigNumberEquals(await rewardBooster.getUserBoostRate(Bob.address, ethxAmount), baseRate.mul(10239).div(10000));
 
     // Day 10. Bob could unstake 15 $LSD-ETH lp tokens
     expect((await rewardBooster.getStakeAmount(Bob.address))[0].toNumber()).to.equal(0);
@@ -325,21 +325,21 @@ describe('Boostable Farm', () => {
     await expect(ethxPool.connect(Alice).set_virtual_price(expandTo18Decimals(2))).not.to.be.reverted;
 
     // Bob stakes 30 $LSD-ETH LP tokens. 
-    // Expected boost rate: 1 + (30 * 0.002) / (0.3 * 2.0) = 1.1
+    // Expected boost rate: 1 + 10 * (30 * 0.002) / (0.3 * 2.0) = 2
     const baseBoostRate = expandTo18Decimals(1);
     const bobStakeAmountLP = expandTo18Decimals(30);
     await expect(lsdEthPair.connect(Alice).transfer(Bob.address, bobStakeAmountLP)).not.to.be.reverted;
     await expect(lsdEthPair.connect(Bob).approve(rewardBooster.address, bobStakeAmountLP)).not.to.be.reverted;
     await expect(rewardBooster.connect(Bob).stake(bobStakeAmountLP)).not.to.be.reverted;
-    expect(await rewardBooster.getUserBoostRate(Bob.address, await boostableFarm.balanceOf(Bob.address))).to.equal(baseBoostRate.mul(11).div(10));
+    expect(await rewardBooster.getUserBoostRate(Bob.address, await boostableFarm.balanceOf(Bob.address))).to.equal(baseBoostRate.mul(2));
 
-    expect(await boostableFarm.boostedBalanceOf(Bob.address)).to.equal(bobStakeAmount.mul(11).div(10));
-    expect(await boostableFarm.totalBoostedSupply()).to.equal(bobStakeAmount.mul(11).div(10).add(caroStakeAmount));
+    expect(await boostableFarm.boostedBalanceOf(Bob.address)).to.equal(bobStakeAmount.mul(2));
+    expect(await boostableFarm.totalBoostedSupply()).to.equal(bobStakeAmount.mul(2).add(caroStakeAmount));
 
-    // Day 4. Bob's reward is boosted. Bob earns 3.3/4.3 rewards, and Caro earns 1/4.3 rewards
+    // Day 4. Bob's reward is boosted. Bob earns 6/7 rewards, and Caro earns 1/7 rewards
     await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 4);
-    expectBigNumberEquals(eslsdRewardsFor7Days.div(7).mul(33).div(43), await boostableFarm.earned(Bob.address));
-    expectBigNumberEquals(eslsdRewardsFor7Days.div(7).mul(10).div(43), await boostableFarm.earned(Caro.address));
+    expectBigNumberEquals(eslsdRewardsFor7Days.div(7).mul(6).div(7), await boostableFarm.earned(Bob.address));
+    expectBigNumberEquals(eslsdRewardsFor7Days.div(7).mul(1).div(7), await boostableFarm.earned(Caro.address));
     await expect(boostableFarm.connect(Bob).getReward()).not.to.be.reverted;
     await expect(boostableFarm.connect(Caro).getReward()).not.to.be.reverted;
 
@@ -349,26 +349,27 @@ describe('Boostable Farm', () => {
     await expect(boostableFarm.connect(Bob).stake(bobStakeAmount2)).not.to.be.reverted;
     expect(await boostableFarm.balanceOf(Bob.address)).to.equal(bobStakeAmount.add(bobStakeAmount2));
 
-    // With new stakes, Bob's boost rate: 1 + (30 * 0.002) / (0.4 * 2.0) = 1.075
-    expect(await boostableFarm.boostedBalanceOf(Bob.address)).to.equal(bobStakeAmount.add(bobStakeAmount2).mul(1075).div(1000));
-    expect(await boostableFarm.totalBoostedSupply()).to.equal(bobStakeAmount.add(bobStakeAmount2).mul(1075).div(1000).add(caroStakeAmount));
+    // With new stakes, Bob's boost rate: 1 + 10 * (30 * 0.002) / (0.4 * 2.0) = 1.75
+    expect(await boostableFarm.boostedBalanceOf(Bob.address)).to.equal(bobStakeAmount.add(bobStakeAmount2).mul(175).div(100));
+    expect(await boostableFarm.totalBoostedSupply()).to.equal(bobStakeAmount.add(bobStakeAmount2).mul(175).div(100).add(caroStakeAmount));
 
-    // Day 5. Bob's boosted balance: 1.075 * 0.4 = 0.43
+    // Day 5. Bob's boosted balance: 1.75 * 0.4 = 0.7
     await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 5);
-    expectBigNumberEquals(eslsdRewardsFor7Days.div(7).mul(43).div(53), await boostableFarm.earned(Bob.address));
-    expectBigNumberEquals(eslsdRewardsFor7Days.div(7).mul(10).div(53), await boostableFarm.earned(Caro.address));
+    // Bob rewards: 7/8;  Caro rewards: 1/8
+    expectBigNumberEquals(eslsdRewardsFor7Days.div(7).mul(7).div(8), await boostableFarm.earned(Bob.address));
+    expectBigNumberEquals(eslsdRewardsFor7Days.div(7).mul(1).div(8), await boostableFarm.earned(Caro.address));
     await expect(boostableFarm.connect(Bob).getReward()).not.to.be.reverted;
     await expect(boostableFarm.connect(Caro).getReward()).not.to.be.reverted;
 
-    // Bob withdraw 0.1 $ETHx, and boost rate is updated: 1 + (30 * 0.002) / (0.3 * 2.0) = 1.1
+    // Bob withdraw 0.1 $ETHx, and boost rate is updated: 1 + 10 * (30 * 0.002) / (0.3 * 2.0) = 2
     await expect(boostableFarm.connect(Bob).withdraw(bobStakeAmount2)).not.to.be.reverted;
     expect(await boostableFarm.balanceOf(Bob.address)).to.equal(bobStakeAmount);
-    expect(await rewardBooster.getUserBoostRate(Bob.address, await boostableFarm.balanceOf(Bob.address))).to.equal(baseBoostRate.mul(11).div(10));
+    expect(await rewardBooster.getUserBoostRate(Bob.address, await boostableFarm.balanceOf(Bob.address))).to.equal(baseBoostRate.mul(2));
 
     // Day 6
     await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 6);
-    expectBigNumberEquals(eslsdRewardsFor7Days.div(7).mul(33).div(43), await boostableFarm.earned(Bob.address));
-    expectBigNumberEquals(eslsdRewardsFor7Days.div(7).mul(10).div(43), await boostableFarm.earned(Caro.address));
+    expectBigNumberEquals(eslsdRewardsFor7Days.div(7).mul(6).div(7), await boostableFarm.earned(Bob.address));
+    expectBigNumberEquals(eslsdRewardsFor7Days.div(7).mul(1).div(7), await boostableFarm.earned(Caro.address));
 
     // Exit all
     await expect(boostableFarm.connect(Bob).withdraw(await boostableFarm.balanceOf(Bob.address))).not.to.be.reverted;
