@@ -10,7 +10,7 @@ const infuraKey: string = process.env.INFURA_KEY || "";
 
 // Goerli
 const provider = new ethers.providers.JsonRpcProvider(`https://goerli.infura.io/v3/${infuraKey}`);
-const votesAddress = '0xCb68A7A7558f46aBb20BA1BE7C5abd429E9fFAe6';
+const votesAddress = '0xF4e2260a22eE8b7079B081b88927ef653F993dec';
 const pools = [
   {
     name: 'LSD Pool',

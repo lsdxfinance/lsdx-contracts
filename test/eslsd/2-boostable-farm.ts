@@ -5,6 +5,7 @@ import { time } from "@nomicfoundation/hardhat-network-helpers";
 import { loadFixture } from '@nomicfoundation/hardhat-network-helpers';
 import { anyValue } from '@nomicfoundation/hardhat-chai-matchers/withArgs';
 import { ONE_DAY_IN_SECS, deployLsdxV2ContractsFixture, expandTo18Decimals, expectBigNumberEquals } from '../utils';
+import { BigNumber } from 'ethers';
 
 const { provider } = ethers;
 
@@ -123,11 +124,12 @@ describe('Boostable Farm', () => {
     // Day 0. Bob stakes 10 $LSD-ETH LP tokens. Lock period: [D0 ~ D7]
     const genesisTime = await time.latest();
     const bobStakeAmount = expandTo18Decimals(10);
+    let nextStakeId = 1;
     await expect(lsdEthPair.connect(Alice).transfer(Bob.address, bobStakeAmount)).not.to.be.reverted;
     await expect(lsdEthPair.connect(Bob).approve(rewardBooster.address, bobStakeAmount)).not.to.be.reverted;
     await expect(rewardBooster.connect(Bob).stake(bobStakeAmount))
       .to.emit(lsdEthPair, 'Transfer').withArgs(Bob.address, rewardBooster.address, bobStakeAmount)
-      .to.emit(rewardBooster, 'Stake').withArgs(Bob.address, bobStakeAmount, stakePeirod7days);
+      .to.emit(rewardBooster, 'Stake').withArgs(Bob.address, nextStakeId, bobStakeAmount);
     expect((await rewardBooster.getStakeAmount(Bob.address))[1]).to.equal(bobStakeAmount);
 
     // Set ETHx virtual price to 2.0
@@ -145,12 +147,13 @@ describe('Boostable Farm', () => {
 
     // Day 2. Bob stakes another 5 $LSD-ETH LP tokens. Lock period: [D2 ~ D9]
     await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 2);
+    nextStakeId = 2;
     const bobStakeAmount2 = expandTo18Decimals(5);
     await expect(lsdEthPair.connect(Alice).transfer(Bob.address, bobStakeAmount2)).not.to.be.reverted;
     await expect(lsdEthPair.connect(Bob).approve(rewardBooster.address, bobStakeAmount2)).not.to.be.reverted;
     await expect(rewardBooster.connect(Bob).stake(bobStakeAmount2))
       .to.emit(lsdEthPair, 'Transfer').withArgs(Bob.address, rewardBooster.address, bobStakeAmount2)
-      .to.emit(rewardBooster, 'Stake').withArgs(Bob.address, bobStakeAmount2, stakePeirod7days);
+      .to.emit(rewardBooster, 'Stake').withArgs(Bob.address, nextStakeId, bobStakeAmount2);
     expect((await rewardBooster.getStakeAmount(Bob.address))[1]).to.equal(bobStakeAmount.add(bobStakeAmount2));
 
     // Expected boost rate: 1 + 10 * (15 * 0.002) / (10 * 2.0) = 1.015
@@ -184,6 +187,7 @@ describe('Boostable Farm', () => {
     // Expected LP: 8.9
     const bobStakeAmount3 = ethers.utils.parseUnits('8.9', 18);
     // console.log(ethers.utils.formatEther(await provider.getBalance(Bob.address)));
+    nextStakeId = 3;
     await expect(esLSD.connect(Bob).zapVest({value: ethers.utils.parseEther('0.0088')})).to.be.rejectedWith(/UniswapV2Router: INSUFFICIENT_A_AMOUNT/);
     await expect(esLSD.connect(Bob).zapVest({value: ethers.utils.parseEther('0.009')}))
       .to.changeEtherBalances([Bob.address, weth.address], [ethers.utils.parseEther('-0.0089'), ethers.utils.parseEther('0.0089')])
@@ -193,7 +197,7 @@ describe('Boostable Farm', () => {
       .to.emit(esLSD, 'Transfer').withArgs(esLSD.address, ethers.constants.AddressZero, vestAmount.div(90).mul(89))
       .to.emit(lsdCoin, 'Transfer').withArgs(esLSD.address, lsdEthPair.address, vestAmount.div(90).mul(89))
       .to.emit(lsdEthPair, 'Transfer').withArgs(esLSD.address, rewardBooster.address, bobStakeAmount3)
-      .to.emit(rewardBooster, 'DelegateZapStake').withArgs(Bob.address, bobStakeAmount3, ONE_DAY_IN_SECS * 7)
+      .to.emit(rewardBooster, 'DelegateZapStake').withArgs(Bob.address, nextStakeId, bobStakeAmount3)
       .to.emit(esLSD, 'ZapVest').withArgs(Bob.address, vestAmount.div(90).mul(89));
 
     expect(await esLSD.totalSupply()).to.equal(await lsdCoin.balanceOf(esLSD.address));
@@ -211,22 +215,22 @@ describe('Boostable Farm', () => {
 
     // Day 10. Bob could unstake 15 $LSD-ETH lp tokens
     expect((await rewardBooster.getStakeAmount(Bob.address))[0].toNumber()).to.equal(0);
-    await expect(rewardBooster.connect(Bob).unstake()).to.be.rejectedWith(/No tokens to unstake/);
+    await expect(rewardBooster.connect(Bob).unstake(BigNumber.from(1))).to.be.rejectedWith(/Not enough tokens to unstake/);
     await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 10);
     expect((await rewardBooster.getStakeAmount(Bob.address))[0]).to.equal(bobStakeAmount.add(bobStakeAmount2));
-    await expect(rewardBooster.connect(Bob).unstake())
+    await expect(rewardBooster.connect(Bob).unstake(bobStakeAmount.add(bobStakeAmount2)))
       .to.emit(lsdEthPair, 'Transfer').withArgs(rewardBooster.address, Bob.address, bobStakeAmount)
       .to.emit(lsdEthPair, 'Transfer').withArgs(rewardBooster.address, Bob.address, bobStakeAmount2)
-      .to.emit(rewardBooster, 'Unstake').withArgs(Bob.address, bobStakeAmount)
-      .to.emit(rewardBooster, 'Unstake').withArgs(Bob.address, bobStakeAmount2);
+      .to.emit(rewardBooster, 'Unstake').withArgs(Bob.address, 1, bobStakeAmount)
+      .to.emit(rewardBooster, 'Unstake').withArgs(Bob.address, 2, bobStakeAmount2);
     expect((await rewardBooster.getStakeAmount(Bob.address))[0].toNumber()).to.equal(0);
 
     // Day 12. Bob could unstake remaining 8.9 LP
     await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 12);
     expect((await rewardBooster.getStakeAmount(Bob.address))[0]).to.equal(bobStakeAmount3);
-    await expect(rewardBooster.connect(Bob).unstake())
+    await expect(rewardBooster.connect(Bob).unstake(bobStakeAmount3))
       .to.emit(lsdEthPair, 'Transfer').withArgs(rewardBooster.address, Bob.address, bobStakeAmount3)
-      .to.emit(rewardBooster, 'Unstake').withArgs(Bob.address, bobStakeAmount3);
+      .to.emit(rewardBooster, 'Unstake').withArgs(Bob.address, 3, bobStakeAmount3);
     expect((await rewardBooster.getStakeAmount(Bob.address))[0].toNumber()).to.equal(0);
     expect((await rewardBooster.getStakeAmount(Bob.address))[1].toNumber()).to.equal(0);
 
@@ -250,9 +254,9 @@ describe('Boostable Farm', () => {
     await expect(rewardBooster.connect(Caro).stake(expandTo18Decimals(11))).to.be.rejectedWith(/Too many stakes/);
 
     // Unstake all
-    await expect(rewardBooster.connect(Caro).unstake()).to.be.rejectedWith(/No tokens to unstake/);
+    await expect(rewardBooster.connect(Caro).unstake(BigNumber.from(1))).to.be.rejectedWith(/Not enough tokens to unstake/);
     await time.increase((await rewardBooster.stakePeriod()).toNumber());
-    await expect(rewardBooster.connect(Caro).unstake())
+    await expect(rewardBooster.connect(Caro).unstake(expandTo18Decimals(1 + 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9 + 10)))
       .to.emit(lsdEthPair, 'Transfer').withArgs(rewardBooster.address, Caro.address, expandTo18Decimals(1))
       .to.emit(lsdEthPair, 'Transfer').withArgs(rewardBooster.address, Caro.address, expandTo18Decimals(2))
       .to.emit(lsdEthPair, 'Transfer').withArgs(rewardBooster.address, Caro.address, expandTo18Decimals(3))
@@ -263,19 +267,71 @@ describe('Boostable Farm', () => {
       .to.emit(lsdEthPair, 'Transfer').withArgs(rewardBooster.address, Caro.address, expandTo18Decimals(8))
       .to.emit(lsdEthPair, 'Transfer').withArgs(rewardBooster.address, Caro.address, expandTo18Decimals(9))
       .to.emit(lsdEthPair, 'Transfer').withArgs(rewardBooster.address, Caro.address, expandTo18Decimals(10))
-      .to.emit(rewardBooster, 'Unstake').withArgs(Caro.address, expandTo18Decimals(1))
-      .to.emit(rewardBooster, 'Unstake').withArgs(Caro.address, expandTo18Decimals(2))
-      .to.emit(rewardBooster, 'Unstake').withArgs(Caro.address, expandTo18Decimals(3))
-      .to.emit(rewardBooster, 'Unstake').withArgs(Caro.address, expandTo18Decimals(4))
-      .to.emit(rewardBooster, 'Unstake').withArgs(Caro.address, expandTo18Decimals(5))
-      .to.emit(rewardBooster, 'Unstake').withArgs(Caro.address, expandTo18Decimals(6))
-      .to.emit(rewardBooster, 'Unstake').withArgs(Caro.address, expandTo18Decimals(7))
-      .to.emit(rewardBooster, 'Unstake').withArgs(Caro.address, expandTo18Decimals(8))
-      .to.emit(rewardBooster, 'Unstake').withArgs(Caro.address, expandTo18Decimals(9))
-      .to.emit(rewardBooster, 'Unstake').withArgs(Caro.address, expandTo18Decimals(10));
+      .to.emit(rewardBooster, 'Unstake').withArgs(Caro.address, 4, expandTo18Decimals(1))
+      .to.emit(rewardBooster, 'Unstake').withArgs(Caro.address, 5, expandTo18Decimals(2))
+      .to.emit(rewardBooster, 'Unstake').withArgs(Caro.address, 6, expandTo18Decimals(3))
+      .to.emit(rewardBooster, 'Unstake').withArgs(Caro.address, 7, expandTo18Decimals(4))
+      .to.emit(rewardBooster, 'Unstake').withArgs(Caro.address, 8, expandTo18Decimals(5))
+      .to.emit(rewardBooster, 'Unstake').withArgs(Caro.address, 9, expandTo18Decimals(6))
+      .to.emit(rewardBooster, 'Unstake').withArgs(Caro.address, 10, expandTo18Decimals(7))
+      .to.emit(rewardBooster, 'Unstake').withArgs(Caro.address, 11, expandTo18Decimals(8))
+      .to.emit(rewardBooster, 'Unstake').withArgs(Caro.address, 12, expandTo18Decimals(9))
+      .to.emit(rewardBooster, 'Unstake').withArgs(Caro.address, 13, expandTo18Decimals(10));
 
     // Stake are cleared. Able to stake again.
     await expect(rewardBooster.connect(Caro).stake(expandTo18Decimals(1))).not.to.be.reverted;
+  });
+
+  it('Unstake works', async () => {
+
+    const { lsdEthPair, rewardBooster, Alice, Bob } = await loadFixture(deployLsdxV2ContractsFixture);
+
+    const genesisTime = await time.latest();
+    const bobMaxStakeAmount = expandTo18Decimals(100);
+    await expect(lsdEthPair.connect(Alice).transfer(Bob.address, bobMaxStakeAmount)).not.to.be.reverted;
+    await expect(lsdEthPair.connect(Bob).approve(rewardBooster.address, bobMaxStakeAmount)).not.to.be.reverted;
+
+    await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 1);
+    await expect(rewardBooster.connect(Bob).stake(expandTo18Decimals(1))).not.to.be.reverted;
+    await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 2);
+    await expect(rewardBooster.connect(Bob).stake(expandTo18Decimals(2))).not.to.be.reverted;
+    await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 3);
+    await expect(rewardBooster.connect(Bob).stake(expandTo18Decimals(3))).not.to.be.reverted;
+    await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 4);
+    await expect(rewardBooster.connect(Bob).stake(expandTo18Decimals(4))).not.to.be.reverted;
+    await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 5);
+    await expect(rewardBooster.connect(Bob).stake(expandTo18Decimals(5))).not.to.be.reverted;
+    await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 6);
+    await expect(rewardBooster.connect(Bob).stake(expandTo18Decimals(6))).not.to.be.reverted;
+    await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 7);
+    await expect(rewardBooster.connect(Bob).stake(expandTo18Decimals(7))).not.to.be.reverted;
+    await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 8);
+    await expect(rewardBooster.connect(Bob).stake(expandTo18Decimals(8))).not.to.be.reverted;
+    await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 9);
+    await expect(rewardBooster.connect(Bob).stake(expandTo18Decimals(9))).not.to.be.reverted;
+    await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 10);
+    await expect(rewardBooster.connect(Bob).stake(expandTo18Decimals(10))).not.to.be.reverted;
+    await expect(rewardBooster.connect(Bob).stake(expandTo18Decimals(11))).to.be.rejectedWith(/Too many stakes/);
+
+    // Day 11. Unstakable amount: 1 + 2 + 3 + 4 = 10
+    await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 11.5);
+    expect((await rewardBooster.getStakeAmount(Bob.address))[0]).to.equal(expandTo18Decimals(10));
+    await expect(rewardBooster.connect(Bob).unstake(expandTo18Decimals(11))).to.be.rejectedWith(/Not enough tokens to unstake/);
+
+    await expect(rewardBooster.connect(Bob).unstake(expandTo18Decimals(1 + 2)))
+      .to.emit(lsdEthPair, 'Transfer').withArgs(rewardBooster.address, Bob.address, expandTo18Decimals(1))
+      .to.emit(lsdEthPair, 'Transfer').withArgs(rewardBooster.address, Bob.address, expandTo18Decimals(2))
+      .to.emit(rewardBooster, 'Unstake').withArgs(Bob.address, anyValue, expandTo18Decimals(1))
+      .to.emit(rewardBooster, 'Unstake').withArgs(Bob.address, anyValue, expandTo18Decimals(2));
+    expect(await rewardBooster.userStakesCount(Bob.address)).to.equal(8);
+
+    await expect(rewardBooster.connect(Bob).unstake(expandTo18Decimals(3 + 1)))
+      .to.emit(lsdEthPair, 'Transfer').withArgs(rewardBooster.address, Bob.address, expandTo18Decimals(3))
+      .to.emit(lsdEthPair, 'Transfer').withArgs(rewardBooster.address, Bob.address, expandTo18Decimals(1))
+      .to.emit(rewardBooster, 'Unstake').withArgs(Bob.address, anyValue, expandTo18Decimals(3))
+      .to.emit(rewardBooster, 'Unstake').withArgs(Bob.address, anyValue, expandTo18Decimals(1));
+    expect(await rewardBooster.userStakesCount(Bob.address)).to.equal(7);
+    expect((await rewardBooster.getStakeAmount(Bob.address))[0]).to.equal(expandTo18Decimals(4 - 1));    
   });
 
   it('Boosted farming works', async () => {

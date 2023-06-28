@@ -89,9 +89,11 @@ Boost Rate = 1 + 10 * (LP Value) / (ETHx Value)
 
 - `getUserBoostRate`: 计算用户的 *Boost Rate*
 - `getBoostRate`: 指定 LP 的数量，计算 *Boost Rate*
+- `userStakesCount(user)`: 查询用户 Stake 的数量
+- `stakeOfUserByIndex(user, index)`: 按照下标查询用户某一笔 Stake 的详情
 - `getStakeAmount`: 查询用户 LP 的总质押量、以及已经解锁的数量
 - `stake`: stake 一笔新的 LP
-- `unstake`: 提取已经解锁的 LP
+- `unstake(amount)`: 提取指定数量的已经解锁的 LP
 
 # Votes
 

@@ -5,8 +5,10 @@ pragma solidity ^0.8.9;
 // import "hardhat/console.sol";
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "@openzeppelin/contracts/utils/structs/DoubleEndedQueue.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import '@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol';
@@ -15,8 +17,10 @@ import "./interfaces/IRewardBooster.sol";
 import "../interfaces/ICurvePool.sol";
 
 contract RewardBooster is IRewardBooster, Ownable, ReentrancyGuard {
+  using Counters for Counters.Counter;
   using SafeMath for uint256;
   using SafeERC20 for IERC20;
+  using DoubleEndedQueue for DoubleEndedQueue.Bytes32Deque;
 
   IUniswapV2Pair public lsdEthPair;
   ICurvePool public ethxPool;
@@ -25,7 +29,9 @@ contract RewardBooster is IRewardBooster, Ownable, ReentrancyGuard {
 
   uint256 public stakePeriod = 7 days;
 
-  mapping(address => StakeInfo[]) public userStakes;
+  Counters.Counter private _nextStakeId;
+  mapping(address => DoubleEndedQueue.Bytes32Deque) private _userStakes;
+  mapping(uint256 => StakeInfo) private _allUserStakes;
   uint256 public constant MAX_STAKES_COUNT_PER_USER = 10;
 
   uint256 public constant DECIMALS = 1e18;
@@ -33,6 +39,7 @@ contract RewardBooster is IRewardBooster, Ownable, ReentrancyGuard {
   uint256 public constant PRECISION = 1e10;
 
   struct StakeInfo {
+    uint256 id;
     uint256 amount;
     uint256 startTime;
     uint256 endTime;
@@ -52,9 +59,21 @@ contract RewardBooster is IRewardBooster, Ownable, ReentrancyGuard {
   /***********************  VIEWS ************************/
   /*******************************************************/
 
-  function ensureStakeCount(address user) external view {
+  function assertStakeCount(address user) external view {
     require(user != address(0), "Zero address detected");
-    require(userStakes[user].length < MAX_STAKES_COUNT_PER_USER, "Too many stakes");
+    require(_userStakes[user].length() < MAX_STAKES_COUNT_PER_USER, "Too many stakes");
+  }
+
+  function userStakesCount(address user) public virtual view returns (uint256) {
+    return _userStakes[user].length();
+  }
+
+  function stakeOfUserByIndex(address user, uint256 index) public virtual view returns (StakeInfo memory) {
+    DoubleEndedQueue.Bytes32Deque storage userStakeIds = _userStakes[user];
+    require(index < userStakeIds.length(), 'Invalid index');
+
+    uint256 stakeId = uint256(userStakeIds.at(index));
+    return _allUserStakes[stakeId];
   }
  
   /**
@@ -62,13 +81,14 @@ contract RewardBooster is IRewardBooster, Ownable, ReentrancyGuard {
    * @return Amount of LP tokens that could be unstaked
    * @return Total amount of staked LP tokens
    */
-  function getStakeAmount(address account) public view returns (uint256, uint256) {
+  function getStakeAmount(address user) public view returns (uint256, uint256) {
     uint256 unstakeableAmount = 0;
     uint256 totalStakedAmount = 0;
 
-    for (uint256 index = 0; index < userStakes[account].length; index++) {
-      StakeInfo storage stakeInfo = userStakes[account][index];
-      if (stakeInfo.amount > 0 && block.timestamp >= stakeInfo.endTime) {
+    for (uint256 index = 0; index < userStakesCount(user); index++) {
+      StakeInfo memory stakeInfo = stakeOfUserByIndex(user, index);
+      require(stakeInfo.amount > 0, "Invalid stake info");
+      if (block.timestamp >= stakeInfo.endTime) {
         unstakeableAmount = unstakeableAmount.add(stakeInfo.amount);
       }
       totalStakedAmount = totalStakedAmount.add(stakeInfo.amount);
@@ -76,8 +96,8 @@ contract RewardBooster is IRewardBooster, Ownable, ReentrancyGuard {
     return (unstakeableAmount, totalStakedAmount);
   }
 
-  function getUserBoostRate(address account, uint256 ethxAmount) external view returns (uint256) {
-    (, uint256 lpAmount) = getStakeAmount(account);
+  function getUserBoostRate(address user, uint256 ethxAmount) external view returns (uint256) {
+    (, uint256 lpAmount) = getStakeAmount(user);
     return getBoostRate(lpAmount, ethxAmount);
   }
 
@@ -99,45 +119,70 @@ contract RewardBooster is IRewardBooster, Ownable, ReentrancyGuard {
   /*******************************************************/
 
   function stake(uint256 amount) external nonReentrant {
-    _stakeFor(_msgSender(), amount);
-    emit Stake(_msgSender(), amount, stakePeriod);
+    uint256 stakeId = _stakeFor(_msgSender(), amount);
+    emit Stake(_msgSender(), stakeId, amount);
   }
 
   function delegateZapStake(address user, uint256 amount) external nonReentrant onlyZapStakeDelegator(_msgSender()) {
-    _stakeFor(user, amount);
-    emit DelegateZapStake(user, amount, stakePeriod);
+    uint256 stakeId = _stakeFor(user, amount);
+    emit DelegateZapStake(user, stakeId, amount);
   }
 
-  function _stakeFor(address user, uint256 amount) private {
+  function _stakeFor(address user, uint256 amount) private returns (uint256) {
     require(user != address(0), "Zero address detected");
     require(amount > 0, "Amount must be greater than 0");
-    require(userStakes[user].length < MAX_STAKES_COUNT_PER_USER, "Too many stakes");
+    require(_userStakes[user].length() < MAX_STAKES_COUNT_PER_USER, "Too many stakes");
+
+    _nextStakeId.increment();
+    uint256 stakeId = _nextStakeId.current();
 
     IERC20(address(lsdEthPair)).safeTransferFrom(_msgSender(), address(this), amount);
-
-    StakeInfo memory stakeInfo = StakeInfo(amount, block.timestamp, block.timestamp.add(stakePeriod));
-    userStakes[user].push(stakeInfo);
+    StakeInfo memory stakeInfo = StakeInfo(stakeId, amount, block.timestamp, block.timestamp.add(stakePeriod));
+    _userStakes[user].pushBack(bytes32(stakeId));
+    _allUserStakes[stakeId] = stakeInfo;
 
     farm.updateBoostRate(user);
+
+    return stakeId;
   }
 
-  function unstake() external nonReentrant {
-    uint256 unstakeableAmount = 0;
-    for (uint256 index = 0; index < userStakes[_msgSender()].length; ) {
-      StakeInfo storage stakeInfo = userStakes[_msgSender()][index];
+  function unstake(uint256 amount) external nonReentrant {
+    require(amount > 0, "Amount must be greater than 0");
 
-      if (stakeInfo.amount > 0 && block.timestamp >= stakeInfo.endTime) {
-        unstakeableAmount = unstakeableAmount.add(stakeInfo.amount);
-        IERC20(address(lsdEthPair)).safeTransfer(_msgSender(), stakeInfo.amount);
-        emit Unstake(_msgSender(), stakeInfo.amount);
-        _deleteStakeInfo(index);
+    (uint256 unstakeableAmount,) = getStakeAmount(_msgSender());
+    require(amount <= unstakeableAmount, "Not enough tokens to unstake");
+
+    uint256 remainingAmount = amount;
+    for (uint256 index = 0; index < userStakesCount(_msgSender()); ) {
+      StakeInfo storage stakeInfo = _allUserStakes[uint256(_userStakes[_msgSender()].at(index))];
+
+      uint256 stakeId = stakeInfo.id;
+      require(stakeInfo.amount > 0, "Invalid stake info");
+
+      bool unstakeable = block.timestamp >= stakeInfo.endTime;
+      if (!unstakeable) {
+        break;
+      }
+
+      uint256 unstakeAmount = 0;
+      if (remainingAmount >= stakeInfo.amount) {
+        unstakeAmount = stakeInfo.amount;
+        _userStakes[_msgSender()].popFront();
+        delete _allUserStakes[stakeId];
       }
       else {
-        index++;
+        unstakeAmount = remainingAmount;
+        stakeInfo.amount = stakeInfo.amount.sub(unstakeAmount);
+      }
+
+      IERC20(address(lsdEthPair)).safeTransfer(_msgSender(), unstakeAmount);
+      emit Unstake(_msgSender(), stakeId, unstakeAmount);
+      remainingAmount = remainingAmount.sub(unstakeAmount);
+      if (remainingAmount == 0) {
+        break;
       }
     }
 
-    require(unstakeableAmount > 0, "No tokens to unstake");
     farm.updateBoostRate(_msgSender());
   }
 
@@ -149,15 +194,6 @@ contract RewardBooster is IRewardBooster, Ownable, ReentrancyGuard {
   function setZapStakeDelegator(address _zapStakeDelegator) external onlyOwner {
     require(_zapStakeDelegator != address(0), "Zero address detected");
     zapStakeDelegator = _zapStakeDelegator;
-  }
-
-  /********************************************************/
-  /****************** INTERNAL FUNCTIONS ******************/
-  /********************************************************/
-
-  function _deleteStakeInfo(uint256 index) internal {
-    userStakes[_msgSender()][index] = userStakes[_msgSender()][userStakes[_msgSender()].length - 1];
-    userStakes[_msgSender()].pop();
   }
 
   /***********************************************/
@@ -173,7 +209,7 @@ contract RewardBooster is IRewardBooster, Ownable, ReentrancyGuard {
   /****************** EVENTS ******************/
   /********************************************/
 
-  event Stake(address indexed userAddress, uint256 amount, uint256 period);
-  event DelegateZapStake(address indexed userAddress, uint256 amount, uint256 period);
-  event Unstake(address indexed userAddress, uint256 amount);
+  event Stake(address indexed userAddress, uint256 stakeId, uint256 amount);
+  event DelegateZapStake(address indexed userAddress, uint256 stakeId, uint256 amount);
+  event Unstake(address indexed userAddress, uint256 stakeId, uint256 amount);
 }

@@ -13,8 +13,8 @@ const infuraKey: string = process.env.INFURA_KEY || "";
 // Goerli
 const provider = new ethers.providers.JsonRpcProvider(`https://goerli.infura.io/v3/${infuraKey}`);
 const lsdCoinAddress = '0x6a45C5515CD20905e6A971A3185D82E8988aA826';
-const eslsdCoinAddress = '0x56c2677D2fb9328ea652b69f6091738Bd9EdA1c5';
-const boostableFarmAddress = '0x582a11e5727C37Eb90443bd2Afa353a810024Fd7';
+const eslsdCoinAddress = '0xf8aa20eE550D8c313fd3d24140095bfA20A501E2';
+const boostableFarmAddress = '0x5A02645129fD082F82169543CCf95c01f2Ab946F';
 
 // mainnet
 // const provider = new ethers.providers.JsonRpcProvider(`https://mainnet.infura.io/v3/${infuraKey}`);
