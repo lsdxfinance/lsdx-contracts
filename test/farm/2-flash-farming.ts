@@ -77,7 +77,7 @@ describe('Flash Farm', () => {
 
     // Fast-forward to Day 10. Add new reward
     await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 10);
-    const round4Reward = expandTo18Decimals(30_000);
+    const round4Reward = expandTo18Decimals(33_333);
     await expect(lsdCoin.connect(Alice).mint(Alice.address, round4Reward)).not.to.be.reverted;
     await expect(lsdCoin.connect(Alice).approve(flashFarm.address, round4Reward)).not.to.be.reverted;
     await expect(flashFarm.connect(Alice).addRewards(round4Reward)).not.to.be.reverted;

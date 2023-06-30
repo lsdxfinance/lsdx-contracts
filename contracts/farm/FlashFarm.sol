@@ -47,7 +47,7 @@ contract FlashFarm is Ownable, ReentrancyGuard {
   }
 
   function earned(address account) public view returns (uint256) {
-    return _balances[account].mul(rewardPerToken.sub(userRewardPerTokenPaid[account])).add(userRewards[account]);
+    return _balances[account].mul(rewardPerToken.sub(userRewardPerTokenPaid[account])).div(1e18).add(userRewards[account]);
   }
 
   /* ========== MUTATIVE FUNCTIONS ========== */
@@ -91,7 +91,7 @@ contract FlashFarm is Ownable, ReentrancyGuard {
     rewardsToken.safeTransferFrom(msg.sender, address(this), rewardsAmount);
 
     if (_totalSupply > 0) {
-      rewardPerToken = rewardPerToken.add(rewardsAmount.div(_totalSupply));
+      rewardPerToken = rewardPerToken.add(rewardsAmount.mul(1e18).div(_totalSupply));
     }
 
     emit RewardAdded(rewardsAmount);

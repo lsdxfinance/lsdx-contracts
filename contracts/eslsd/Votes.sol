@@ -99,6 +99,7 @@ contract Votes is Ownable, ReentrancyGuard {
     return
       _userVotes[poolId][account]
         .mul(bribeRewardsPerToken[poolId].sub(userBribeRewardsPerTokenPaid[poolId][account]))
+        .div(1e18)
         .add(userBribeRewards[poolId][account]);
   }
 
@@ -209,7 +210,7 @@ contract Votes is Ownable, ReentrancyGuard {
     VotingPool storage pool = _votingPools[poolId];
     IERC20(pool.bribeToken).safeTransferFrom(_msgSender(), address(this), bribeAmount);
 
-    bribeRewardsPerToken[poolId] = bribeRewardsPerToken[poolId].add(bribeAmount.div(_totalVotes[poolId]));
+    bribeRewardsPerToken[poolId] = bribeRewardsPerToken[poolId].add(bribeAmount.mul(1e18).div(_totalVotes[poolId]));
 
     emit BribeRewardsAdded(poolId, _msgSender(), bribeAmount);
   }

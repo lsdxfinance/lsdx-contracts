@@ -3,11 +3,8 @@ import { ethers } from 'hardhat';
 import { expect } from 'chai';
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 import { loadFixture } from '@nomicfoundation/hardhat-network-helpers';
-import { anyValue } from '@nomicfoundation/hardhat-chai-matchers/withArgs';
-import { ONE_DAY_IN_SECS, deployLsdxV2ContractsFixture, expandTo18Decimals, expectBigNumberEquals } from '../utils';
+import { ONE_DAY_IN_SECS, deployLsdxV2ContractsFixture, expectBigNumberEquals } from '../utils';
 import { BigNumber } from 'ethers';
-
-const { provider } = ethers;
 
 describe('Votes', () => {
 
@@ -245,4 +242,100 @@ describe('Votes', () => {
 
   });
 
+  it('Batch vote works', async () => {
+
+    const { lsdCoin, esLSD, ethx, votes, Alice, Bob, Caro } = await loadFixture(deployLsdxV2ContractsFixture);
+
+    const genesisTime = await time.latest();
+
+    // Create 2 voting pools with bribe token:  $ETHx, $LSD
+    await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 1);
+    await expect(votes.connect(Bob).addVotingPool("ETHx Voting Pool", ethx.address)).to.be.rejectedWith(/Ownable: caller is not the owner/);
+    const lsdPoolId = 1;
+    await expect(votes.connect(Alice).addVotingPool("LSD Voting Pool", lsdCoin.address))
+      .to.emit(votes, 'VotingPoolAdded').withArgs(lsdPoolId, "LSD Voting Pool", lsdCoin.address);
+
+    const ethxPoolId = 2;
+    await expect(votes.connect(Alice).addVotingPool("ETHx Voting Pool", ethx.address))
+      .to.emit(votes, 'VotingPoolAdded').withArgs(ethxPoolId, "ETHx Voting Pool", ethx.address);
+
+    // Alice batch votes 20 $esLSD to lsd pool, and 30 $esLSD to ethx pool
+    const aliceBatchVote1LsdxPoolAmount = ethers.utils.parseUnits("20", 18);
+    const aliceBatchVote1EthxPoolAmount = ethers.utils.parseUnits("30", 18);
+    await expect(lsdCoin.connect(Alice).mint(Alice.address, aliceBatchVote1LsdxPoolAmount.add(aliceBatchVote1EthxPoolAmount))).not.to.be.reverted;
+    await expect(lsdCoin.connect(Alice).approve(esLSD.address, aliceBatchVote1LsdxPoolAmount.add(aliceBatchVote1EthxPoolAmount))).not.to.be.reverted;
+    await expect(esLSD.connect(Alice).escrow(aliceBatchVote1LsdxPoolAmount.add(aliceBatchVote1EthxPoolAmount))).not.to.be.rejected;
+
+    await expect(esLSD.connect(Alice).approve(votes.address, aliceBatchVote1EthxPoolAmount.add(aliceBatchVote1LsdxPoolAmount))).not.to.be.reverted;
+    await expect(votes.connect(Alice).batchVote([
+      {poolId: lsdPoolId, amount: aliceBatchVote1LsdxPoolAmount},
+      {poolId: ethxPoolId, amount: aliceBatchVote1EthxPoolAmount}
+    ]))
+      .to.emit(esLSD, 'Transfer').withArgs(Alice.address, votes.address, aliceBatchVote1LsdxPoolAmount)
+      .to.emit(votes, 'Voted').withArgs(lsdPoolId, Alice.address, aliceBatchVote1LsdxPoolAmount)
+      .to.emit(esLSD, 'Transfer').withArgs(Alice.address, votes.address, aliceBatchVote1EthxPoolAmount)
+      .to.emit(votes, 'Voted').withArgs(ethxPoolId, Alice.address, aliceBatchVote1EthxPoolAmount);
+
+    // Day 2. Bob batch votes 12 $esLSD to lsd pool, and 20 $esLSD to ethx pool
+    await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 2);
+    const bobBatchVote1LsdxPoolAmount = ethers.utils.parseUnits("12", 18);
+    const bobBatchVote1EthxPoolAmount = ethers.utils.parseUnits("20", 18);
+    await expect(lsdCoin.connect(Alice).mint(Bob.address, bobBatchVote1LsdxPoolAmount.add(bobBatchVote1EthxPoolAmount))).not.to.be.reverted;
+    await expect(lsdCoin.connect(Bob).approve(esLSD.address, bobBatchVote1LsdxPoolAmount.add(bobBatchVote1EthxPoolAmount))).not.to.be.reverted;
+    await expect(esLSD.connect(Bob).escrow(bobBatchVote1LsdxPoolAmount.add(bobBatchVote1EthxPoolAmount))).not.to.be.rejected;
+
+    await expect(esLSD.connect(Bob).approve(votes.address, bobBatchVote1LsdxPoolAmount.add(bobBatchVote1EthxPoolAmount))).not.to.be.reverted;
+    await expect(votes.connect(Bob).batchVote([
+      {poolId: lsdPoolId, amount: bobBatchVote1LsdxPoolAmount},
+      {poolId: ethxPoolId, amount: bobBatchVote1EthxPoolAmount}
+    ]))
+      .to.emit(esLSD, 'Transfer').withArgs(Bob.address, votes.address, bobBatchVote1LsdxPoolAmount)
+      .to.emit(votes, 'Voted').withArgs(lsdPoolId, Bob.address, bobBatchVote1LsdxPoolAmount)
+      .to.emit(esLSD, 'Transfer').withArgs(Bob.address, votes.address, bobBatchVote1EthxPoolAmount)
+      .to.emit(votes, 'Voted').withArgs(ethxPoolId, Bob.address, bobBatchVote1EthxPoolAmount);
+    
+    // Day 3. Alice add 100 $LSD bribe rewards to lsd pool
+    await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 3);
+    const lsdPoolBribeAmount1 = ethers.utils.parseUnits("100", 18);
+    await expect(lsdCoin.connect(Alice).mint(Alice.address, lsdPoolBribeAmount1)).not.to.be.reverted;
+    await expect(lsdCoin.connect(Alice).approve(votes.address, lsdPoolBribeAmount1)).not.to.be.reverted;
+    await expect(votes.connect(Alice).bribe(lsdPoolId, lsdPoolBribeAmount1))
+      .to.emit(lsdCoin, 'Transfer').withArgs(Alice.address, votes.address, lsdPoolBribeAmount1)
+      .to.emit(votes, 'BribeRewardsAdded').withArgs(lsdPoolId, Alice.address, lsdPoolBribeAmount1);
+    
+    // Alice's bribe amount: 100 * 20 / 32 = 62.5
+    // Bob's bribe amount: 100 * 12 / 32 = 37.5
+    await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 3.5);
+    expectBigNumberEquals(lsdPoolBribeAmount1.mul(20).div(32), await votes.bribeRewardsEarned(lsdPoolId, Alice.address));
+    expectBigNumberEquals(lsdPoolBribeAmount1.mul(12).div(32), await votes.bribeRewardsEarned(lsdPoolId, Bob.address));
+
+    // Caro add 20 $esLSD to lsd pool, but should get no rewards
+    const caroVoteAmount1 = ethers.utils.parseUnits("20", 18);
+    await expect(lsdCoin.connect(Alice).mint(Caro.address, caroVoteAmount1)).not.to.be.reverted;
+    await expect(lsdCoin.connect(Caro).approve(esLSD.address, caroVoteAmount1)).not.to.be.reverted;
+    await expect(esLSD.connect(Caro).escrow(caroVoteAmount1)).not.to.be.rejected;
+    await expect(esLSD.connect(Caro).approve(votes.address, caroVoteAmount1)).not.to.be.reverted;
+
+    await expect(votes.connect(Caro).vote(lsdPoolId, caroVoteAmount1))
+      .to.emit(esLSD, 'Transfer').withArgs(Caro.address, votes.address, caroVoteAmount1)
+      .to.emit(votes, 'Voted').withArgs(lsdPoolId, Caro.address, caroVoteAmount1);
+    expectBigNumberEquals(lsdPoolBribeAmount1.mul(20).div(32), await votes.bribeRewardsEarned(lsdPoolId, Alice.address));
+    expectBigNumberEquals(lsdPoolBribeAmount1.mul(12).div(32), await votes.bribeRewardsEarned(lsdPoolId, Bob.address));
+    expectBigNumberEquals(BigNumber.from(0), await votes.bribeRewardsEarned(lsdPoolId, Caro.address));
+
+    // Day 4. Alice add another 50 $LSD bribe rewards to lsd pool
+    await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 4);
+    const lsdPoolBribeAmount2 = ethers.utils.parseUnits("50", 18);
+    await expect(lsdCoin.connect(Alice).mint(Alice.address, lsdPoolBribeAmount2)).not.to.be.reverted;
+    await expect(lsdCoin.connect(Alice).approve(votes.address, lsdPoolBribeAmount2)).not.to.be.reverted;
+    await expect(votes.connect(Alice).bribe(lsdPoolId, lsdPoolBribeAmount2))
+      .to.emit(lsdCoin, 'Transfer').withArgs(Alice.address, votes.address, lsdPoolBribeAmount2)
+      .to.emit(votes, 'BribeRewardsAdded').withArgs(lsdPoolId, Alice.address, lsdPoolBribeAmount2);
+    
+    await time.increaseTo(genesisTime + ONE_DAY_IN_SECS * 4.1);
+    expectBigNumberEquals(lsdPoolBribeAmount1.mul(20).div(32).add(lsdPoolBribeAmount2.mul(20).div(52)), await votes.bribeRewardsEarned(lsdPoolId, Alice.address));
+    expectBigNumberEquals(lsdPoolBribeAmount1.mul(12).div(32).add(lsdPoolBribeAmount2.mul(12).div(52)), await votes.bribeRewardsEarned(lsdPoolId, Bob.address));
+    expectBigNumberEquals(BigNumber.from(0).add(lsdPoolBribeAmount2.mul(20).div(52)), await votes.bribeRewardsEarned(lsdPoolId, Caro.address));
+
+  });
 });
