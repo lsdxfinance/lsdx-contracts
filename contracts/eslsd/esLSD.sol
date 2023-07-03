@@ -38,9 +38,9 @@ contract esLSD is Ownable, ReentrancyGuard, ERC20("esLSD Token", "esLSD") {
   }
 
   constructor(address _lsdToken, address _uniswapV2Router, address _lsdEthPair) Ownable() {
-    require(_lsdToken != address(0), "Zero address detected");
-    require(_uniswapV2Router != address(0), "Zero address detected");
-    require(_lsdEthPair != address(0), "Zero address detected");
+    require(_lsdToken != address(0), "lsdToken address detected");
+    require(_uniswapV2Router != address(0), "uniswapV2Router address detected");
+    require(_lsdEthPair != address(0), "lsdEthPair address detected");
 
     lsdToken = IERC20(_lsdToken);
     uniswapV2Router = IUniswapV2Router02(_uniswapV2Router);
@@ -74,13 +74,10 @@ contract esLSD is Ownable, ReentrancyGuard, ERC20("esLSD Token", "esLSD") {
     require(vestingInfo.amount > 0, "No tokens to claim");
     require(block.timestamp >= vestingInfo.startTime, "Vesting not started");
 
-    uint256 unlocked = 0;
+    uint256 unlocked = claimableAmount(_msgSender());
     if (block.timestamp >= vestingInfo.endTime) {
-      unlocked = vestingInfo.amount;
       delete userVestings[_msgSender()];
-    }
-    else {
-      unlocked = vestingInfo.amount.mul(block.timestamp.sub(vestingInfo.startTime)).div(vestingInfo.endTime.sub(vestingInfo.startTime));
+    } else {
       vestingInfo.amount = vestingInfo.amount.sub(unlocked);
       vestingInfo.startTime = block.timestamp;
     }
@@ -102,23 +99,12 @@ contract esLSD is Ownable, ReentrancyGuard, ERC20("esLSD Token", "esLSD") {
 
     _transfer(_msgSender(), address(this), amount);
 
-    VestingInfo storage vestingInfo = userVestings[msg.sender];
+    VestingInfo storage vestingInfo = userVestings[_msgSender()];
     uint256 accruedAmount = amount;
     uint256 unlocked = 0;
-    // Case 1: No ongoing vesting
-    if (vestingInfo.amount == 0) {
-
-    }
-    // Case 2: Ongoing vesting
-    else {
-      require(block.timestamp >= vestingInfo.startTime, "Vesting not started");
-      // Case 2.1: Ongoing vesting, all vested
-      if (block.timestamp >= vestingInfo.endTime) {
-        unlocked = vestingInfo.amount;
-      }
-      // Case 2.2: Ongoing vesting, partial vested
-      else {
-        unlocked = vestingInfo.amount.mul(block.timestamp.sub(vestingInfo.startTime)).div(vestingInfo.endTime.sub(vestingInfo.startTime));
+    if (vestingInfo.amount > 0) {
+      unlocked = claimableAmount(_msgSender());
+      if (block.timestamp < vestingInfo.endTime) {
         accruedAmount = accruedAmount.add(vestingInfo.amount).sub(unlocked);
       }
     }
@@ -142,15 +128,10 @@ contract esLSD is Ownable, ReentrancyGuard, ERC20("esLSD Token", "esLSD") {
 
     VestingInfo storage vestingInfo = userVestings[_msgSender()];
     require(vestingInfo.amount > 0, "No tokens to claim");
-    require(block.timestamp >= vestingInfo.startTime, "Vesting not started");
 
-    uint256 unlocked = 0;
+    uint256 unlocked = claimableAmount(_msgSender());
     uint256 zapAmount = 0;
-    if (block.timestamp >= vestingInfo.endTime) {
-      unlocked = vestingInfo.amount;
-    }
-    else {
-      unlocked = vestingInfo.amount.mul(block.timestamp.sub(vestingInfo.startTime)).div(vestingInfo.endTime.sub(vestingInfo.startTime));
+    if (block.timestamp < vestingInfo.endTime) {
       zapAmount = vestingInfo.amount.sub(unlocked);
     }
     require(zapAmount > 0, "No unlocked tokens to zap vest");
