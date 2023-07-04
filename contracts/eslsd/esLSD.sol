@@ -38,9 +38,9 @@ contract esLSD is Ownable, ReentrancyGuard, ERC20("esLSD Token", "esLSD") {
   }
 
   constructor(address _lsdToken, address _uniswapV2Router, address _lsdEthPair) Ownable() {
-    require(_lsdToken != address(0), "lsdToken address detected");
-    require(_uniswapV2Router != address(0), "uniswapV2Router address detected");
-    require(_lsdEthPair != address(0), "lsdEthPair address detected");
+    require(_lsdToken != address(0), "Zero address detected: lsdToken");
+    require(_uniswapV2Router != address(0), "Zero address detected: uniswapV2Router");
+    require(_lsdEthPair != address(0), "Zero address detected: lsdEthPair");
 
     lsdToken = IERC20(_lsdToken);
     uniswapV2Router = IUniswapV2Router02(_uniswapV2Router);
