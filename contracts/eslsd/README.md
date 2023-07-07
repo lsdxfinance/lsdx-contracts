@@ -16,6 +16,17 @@ $ hh verify --network <mainnet/goerli> <address>
 
 # Contract Addresses
 
+## Mainnet
+
+- esLSD: 0x081231339BcC4061e4511d73f1697C021B461aC2
+
+- BoostableFarm: 0xfCf6e80e5A495ceDdE15b87575700aB85176d568
+
+- RewardBooster: 0x4DDa06101a074d92ad26d0158ff6aff742fD5854
+
+- Votes: 0x2003d2Bc6C944ff0f8a16f79e6Bdc782a48BC1De
+
+
 ## Goerli
 
 - esLSD: 0x49dFb01E4268D4d4b5f47A2E1CCE664f68AbE586
