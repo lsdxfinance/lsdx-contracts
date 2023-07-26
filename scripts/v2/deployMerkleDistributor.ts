@@ -12,12 +12,12 @@ const hexRoot = '0x5964a54af68a11ad8de41b1f99331a34b05e4560a77c8c78e932474fc64a3
 const endTime = dayjs().add(30, 'day').unix();
 
 // Goerli
-const provider = new ethers.providers.JsonRpcProvider(`https://goerli.infura.io/v3/${infuraKey}`);
-const eslsdCoinAddress = '0x49dFb01E4268D4d4b5f47A2E1CCE664f68AbE586';
+// const provider = new ethers.providers.JsonRpcProvider(`https://goerli.infura.io/v3/${infuraKey}`);
+// const eslsdCoinAddress = '0x49dFb01E4268D4d4b5f47A2E1CCE664f68AbE586';
 
 // mainnet
-// const provider = new ethers.providers.JsonRpcProvider(`https://mainnet.infura.io/v3/${infuraKey}`);
-// const eslsdCoinAddress = '';
+const provider = new ethers.providers.JsonRpcProvider(`https://mainnet.infura.io/v3/${infuraKey}`);
+const eslsdCoinAddress = '0x081231339BcC4061e4511d73f1697C021B461aC2';
 
 // const deployer = new ethers.Wallet(privateKey, provider);
 

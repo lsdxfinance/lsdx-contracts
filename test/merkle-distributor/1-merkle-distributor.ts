@@ -42,10 +42,11 @@ describe('Merkle Distributor', () => {
       /ERC20: transfer amount exceeds balance/,
     );
 
-    // Fund the contract
+    // Fund the contract (could be multiple transactions)
     expect(await erc20.balanceOf(merkleDistributor.address)).to.equal(0);
     await expect(erc20.connect(Alice).mint(Alice.address, totalAmount)).not.to.be.reverted;
-    await expect(erc20.connect(Alice).transfer(merkleDistributor.address, totalAmount)).not.to.be.reverted;
+    await expect(erc20.connect(Alice).transfer(merkleDistributor.address, totalAmount.div(2))).not.to.be.reverted;
+    await expect(erc20.connect(Alice).transfer(merkleDistributor.address, totalAmount.div(2))).not.to.be.reverted;
 
     // Now Alice could claim her rewards
     await expect(merkleDistributor.connect(Alice).claim(0, Alice.address, aliceAmount, aliceProof))
