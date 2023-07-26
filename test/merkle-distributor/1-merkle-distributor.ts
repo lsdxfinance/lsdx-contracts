@@ -1,12 +1,15 @@
 import _ from 'lodash';
 import { ethers } from 'hardhat';
 import { expect } from 'chai';
+import { time } from "@nomicfoundation/hardhat-network-helpers";
 import { loadFixture } from '@nomicfoundation/hardhat-network-helpers';
-import { deployLsdxContractsFixture } from '../utils';
-import { MerkleDistributor__factory } from '../../typechain';
+import { ONE_DAY_IN_SECS, deployLsdxContractsFixture } from '../utils';
+import { MerkleDistributorWithDeadline__factory } from '../../typechain';
 import BalanceTree from '../../src/balance-tree';
 
 const { provider } = ethers;
+
+const dayjs = require('dayjs');
 
 describe('Merkle Distributor', () => {
 
@@ -27,9 +30,10 @@ describe('Merkle Distributor', () => {
     ];
     const merkleTree = new BalanceTree(distributionList);
 
-    const MerkleDistributor = await ethers.getContractFactory('MerkleDistributor');
-    const merkleDistributorContract = await MerkleDistributor.deploy(erc20.address, merkleTree.getHexRoot());
-    const merkleDistributor = MerkleDistributor__factory.connect(merkleDistributorContract.address, provider);
+    const endTime = dayjs().add(30, 'day').unix();
+    const MerkleDistributorWithDeadline = await ethers.getContractFactory('MerkleDistributorWithDeadline');
+    const merkleDistributorContract = await MerkleDistributorWithDeadline.deploy(erc20.address, merkleTree.getHexRoot(), endTime);
+    const merkleDistributor = MerkleDistributorWithDeadline__factory.connect(merkleDistributorContract.address, provider);
 
     // Alice should fail to claim before the contract is funded
     expect(await merkleDistributor.isClaimed(0)).to.equal(false);
@@ -62,6 +66,17 @@ describe('Merkle Distributor', () => {
     // Caro's rewards could not be claimed with an invalid proof or amount
     await expect(merkleDistributor.connect(Caro).claim(2, Caro.address, bobAmount, bobProof)).to.be.rejected;
     await expect(merkleDistributor.connect(Caro).claim(2, Caro.address, caroAmount, bobProof)).to.be.rejected;
+
+    // 30 days later, could not be claimed
+    await time.increase(ONE_DAY_IN_SECS * 30);
+    const daveProof = merkleTree.getProof(3, Dave.address, daveAmount);
+    await expect(merkleDistributor.connect(Dave).claim(3, Dave.address, daveAmount, daveProof))
+      .to.be.rejectedWith(
+        /ClaimWindowFinished/,
+      );
+    
+    // Withdraw coins
+    await expect(merkleDistributor.connect(Alice).withdraw()).not.to.be.reverted;
   });
 
 });
